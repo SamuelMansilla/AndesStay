@@ -1,12 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { PublicClientApplication, EventType } from "@azure/msal-browser";
+import { EventType } from "@azure/msal-browser";
 import type { EventMessage, AuthenticationResult } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
-import { msalConfig } from "./authConfig";
+import { msalInstance } from "./authConfig";
 import App from "./App";
-
-const msalInstance = new PublicClientApplication(msalConfig);
 
 async function main() {
     // Inicialización obligatoria en MSAL v3+
@@ -15,6 +13,9 @@ async function main() {
     // Limpiar estado huérfano de MSAL si el cache del redirect se perdió (recarga durante redirect, extensiones del navegador, etc.)
     await msalInstance.handleRedirectPromise().catch((error) => {
         if (error?.errorCode === "no_token_request_cache_error") {
+            Object.keys(sessionStorage)
+                .filter((k) => k.startsWith("msal."))
+                .forEach((k) => sessionStorage.removeItem(k));
             Object.keys(localStorage)
                 .filter((k) => k.startsWith("msal."))
                 .forEach((k) => localStorage.removeItem(k));

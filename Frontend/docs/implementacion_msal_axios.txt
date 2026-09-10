@@ -1,0 +1,110 @@
+================================================================================
+DOCUMENTACION DE IMPLEMENTACION Y CAMBIOS REALIZADOS - FRONTEND ANDESSTAY
+================================================================================
+Fecha: 10 de Septiembre de 2026
+Proyecto: Frontend (React 19 + Vite + TypeScript + MSAL Browser v5)
+Ambiente: Frontend - AndesStay
+
+--------------------------------------------------------------------------------
+1. RESUMEN DE OBJETIVOS
+--------------------------------------------------------------------------------
+1. Implementar la configuración centralizada de autenticación IDaaS con Azure Entra ID
+   utilizando @azure/msal-browser y @azure/msal-react.
+2. Crear un cliente HTTP Axios con interceptor para la inyección automática de tokens
+   Bearer JWT hacia AWS API Gateway.
+3. Extraer el claim de roles del ID Token de Azure AD (Admin, Recepcionista, Huésped, Auditor)
+   sin dependencia del backend.
+4. Implementar las 6 pantallas del caso AndesStay con protección de rutas basada en roles.
+
+--------------------------------------------------------------------------------
+2. DEPENDENCIAS INSTALADAS
+--------------------------------------------------------------------------------
+- axios (^1.20.0):
+  Gestión de solicitudes HTTP hacia AWS API Gateway con inyección de JWT.
+  Comando: npm install axios
+
+- react-router-dom (^7.18.3):
+  Enrutamiento dinámico SPA para la navegación entre las 6 pantallas del sistema.
+  Comando: npm install react-router-dom
+
+--------------------------------------------------------------------------------
+3. ARQUITECTURA DE ROLES (ID TOKEN CLAIMS EN AZURE AD)
+--------------------------------------------------------------------------------
+¿Es posible extraer el claim de roles ahora sin tocar el backend?
+SÍ. Los roles son emitidos directamente por Azure Entra ID en el ID Token (JWT)
+durante el login del usuario en el frontend:
+- Ubicación: `account.idTokenClaims.roles` (array de strings: ["Admin"], ["Recepcionista"], etc.).
+- En el frontend se implementó el hook `useUserRole` (src/hooks/useUserRole.ts):
+  * Lee y mapea los claims nativos de Azure.
+  * Provee un selector de roles para modo desarrollo/evaluación (guardado en sessionStorage/localStorage),
+    permitiendo probar todas las pantallas y restricciones de inmediato sin esperar
+    la configuración manual de App Roles en el portal de Azure.
+  * El backend de Spring Boot solo consumirá estos mismos roles más adelante
+    para validar `@PreAuthorize("hasRole('Admin')")`.
+
+--------------------------------------------------------------------------------
+4. ARCHIVOS MODIFICADOS Y CREADOS
+--------------------------------------------------------------------------------
+
+A. Variables de Entorno (Frontend/.env)
+   - VITE_AZURE_CLIENT_ID: Identificador de la App Cliente en Azure AD.
+   - VITE_AZURE_TENANT_ID: Identificador del Tenant en Azure AD.
+   - VITE_AZURE_REDIRECT_URI: URI de redirección post-login (http://localhost:5173).
+   - VITE_AZURE_API_CLIENT_ID: ID de la App API en Azure.
+   - VITE_AZURE_API_SCOPE: Ámbito de acceso (api://TU_API_CLIENT_ID/access_as_user).
+   - VITE_API_GATEWAY_URL: Base URL del AWS API Gateway (https://api-gateway-url.aws.com/v2).
+
+B. Configuración de MSAL (Frontend/src/authConfig.ts)
+   - Configuración de `msalConfig` con cache en "sessionStorage".
+   - Omitido `storeAuthStateInCookie` debido a incompatibilidad con MSAL v5.
+   - Configuración de `loginRequest` con scopes hacia el API.
+   - Exportación de la instancia singleton `msalInstance`.
+
+C. Entrypoint y Sincronización Singleton (Frontend/src/main.tsx)
+   - Se importa `msalInstance` desde authConfig para evitar instancias desincronizadas.
+   - Limpieza de caché huérfana en sessionStorage y localStorage.
+
+D. Cliente Axios con Interceptor (Frontend/src/api/axiosClient.ts)
+   - Interceptor de petición que adquiere silenciosamente el token (`acquireTokenSilent`)
+     y añade la cabecera `Authorization: Bearer <accessToken>`.
+
+E. Componentes de Seguridad y Navegación
+   - `src/hooks/useUserRole.ts`: Hook para extracción de roles y control de privilegios.
+   - `src/components/ProtectedRoute.tsx`: Guard de ruta que valida login y roles permitidos.
+   - `src/components/Navbar.tsx`: Barra de navegación con logo, selector de rol de prueba,
+     insignia de rol activo y botón de cerrar sesión.
+
+F. Las 6 Pantallas del Caso (Frontend/src/pages/)
+   1. `LoginPage.tsx` (/login):
+      Acceso público. Botón corporativo "Iniciar sesión con Microsoft".
+   2. `DashboardPage.tsx` (/dashboard):
+      Todos los autenticados. Vista adaptativa según rol (Admin: ocupación y KPIs;
+      Recepcionista: check-in/out del día; Huésped: mis reservas; Auditor: resumen)
+      e integración interactiva del botón "Obtener Datos vía API" (Diagrama de Secuencia).
+   3. `ReservationsPage.tsx` (/reservations):
+      Roles: Admin, Recepcionista, Huésped.
+      CRUD de reservas, creación de reservas y máquina de estados con validación de regla
+      de negocio: "No se puede hacer check-in sin CONFIRMAR".
+      Ciclo: CREADA -> CONFIRMADA -> CHECKIN_PENDIENTE -> EN_ESTADÍA -> CHECKOUT / CANCELADA.
+   4. `CatalogPage.tsx` (/catalog):
+      Roles: Admin, Recepcionista.
+      Listado y gestión de unidades (habitaciones/cabañas), tarifas por noche, capacidad
+      y control de disponibilidad.
+   5. `ReportsPage.tsx` (/reports):
+      Roles: Admin.
+      Panel de KPIs en tiempo real: ocupación, tiempo de ciclo promedio, reservas por hora
+      y top de unidades más demandadas.
+   6. `AuditPage.tsx` (/audit):
+      Roles: Admin, Auditor.
+      Timeline inmutable de eventos de reservas (solo lectura), con filtros por usuario,
+      ID de reserva y tipo de evento (CREACION, CONFIRMACION, CHECK_IN, CHECK_OUT).
+
+G. Enrutador Principal (Frontend/src/App.tsx)
+   - Configurado con `BrowserRouter`, `Routes` y `Route` aplicando `ProtectedRoute`.
+
+--------------------------------------------------------------------------------
+5. ESTADO DE VERIFICACION
+--------------------------------------------------------------------------------
+- Compilación TypeScript (tsc -b && vite build): EXITOSA (0 errores).
+- Linter ESLint (npm run lint): EXITOSO (0 errores, 0 advertencias).
+================================================================================

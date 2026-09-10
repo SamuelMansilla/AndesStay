@@ -21,7 +21,7 @@ export function useApi() {
             // Si falla por interacción requerida (MFA, sesión caducada), forzar re-autenticación
             if (error instanceof InteractionRequiredAuthError) {
                 await instance.acquireTokenRedirect(loginRequest);
-                throw new Error("Redirigiendo para autenticación");
+                throw new Error("Redirigiendo para autenticación", { cause: error });
             }
             throw error;
         }

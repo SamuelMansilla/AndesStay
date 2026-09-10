@@ -1,56 +1,74 @@
-import { useMsal, useIsAuthenticated } from "@azure/msal-react";
-import { InteractionStatus } from "@azure/msal-browser";
-import { loginRequest } from "./authConfig";
-import { ProtectedData } from "./ProtectedData";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Navbar } from "./components/Navbar";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { LoginPage } from "./pages/LoginPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { ReservationsPage } from "./pages/ReservationsPage";
+import { CatalogPage } from "./pages/CatalogPage";
+import { ReportsPage } from "./pages/ReportsPage";
+import { AuditPage } from "./pages/AuditPage";
 
 export default function App() {
-    const { instance, accounts, inProgress } = useMsal();
-    const isAuthenticated = useIsAuthenticated();
-    const currentUser = accounts[0];
+  return (
+    <BrowserRouter>
+      <div style={{ minHeight: "100vh", background: "#f8fafc", color: "#0f172a", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+        <Navbar />
+        <main>
+          <Routes>
+            {/* Ruta pública */}
+            <Route path="/login" element={<LoginPage />} />
 
-    const handleLogin = () => {
-        if (inProgress === InteractionStatus.None) {
-            instance.loginRedirect(loginRequest).catch((e) => console.error(e));
-        }
-    };
+            {/* Rutas protegidas según requerimientos del caso (Sección 6) */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
 
-    const handleLogout = () => {
-        if (inProgress === InteractionStatus.None) {
-            instance
-                .logoutRedirect({ postLogoutRedirectUri: "/" })
-                .catch((e) => console.error(e));
-        }
-    };
+            <Route
+              path="/reservations"
+              element={
+                <ProtectedRoute allowedRoles={["Admin", "Recepcionista", "Huésped"]}>
+                  <ReservationsPage />
+                </ProtectedRoute>
+              }
+            />
 
-    return (
-        <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-            <h1>Portal de Autenticación con Microsoft Entra ID</h1>
+            <Route
+              path="/catalog"
+              element={
+                <ProtectedRoute allowedRoles={["Admin", "Recepcionista"]}>
+                  <CatalogPage />
+                </ProtectedRoute>
+              }
+            />
 
-            {isAuthenticated ? (
-                <div>
-                    <p>
-                        Bienvenido,{" "}
-                        <strong>{currentUser?.name || currentUser?.username}</strong>
-                    </p>
-                    <button onClick={handleLogout}>Cerrar Sesión</button>
-                    <hr style={{ margin: "1.5rem 0" }} />
-                    <ProtectedData />
-                </div>
-            ) : (
-                <div>
-                    <p>
-                        Debes iniciar sesión con tu cuenta institucional para continuar.
-                    </p>
-                    <button
-                        onClick={handleLogin}
-                        disabled={inProgress !== InteractionStatus.None}
-                    >
-                        {inProgress !== InteractionStatus.None
-                        ? "Cargando..."
-                        : "Iniciar Sesión"}
-                    </button>
-                </div>
-            )}
-        </div>
-    );
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute allowedRoles={["Admin"]}>
+                  <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/audit"
+              element={
+                <ProtectedRoute allowedRoles={["Admin", "Auditor"]}>
+                  <AuditPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Redirección por defecto */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
+  );
 }
