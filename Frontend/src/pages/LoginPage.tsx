@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { Navigate } from "react-router-dom";
@@ -6,14 +7,34 @@ import { loginRequest } from "../authConfig";
 export function LoginPage() {
   const { instance, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    setErrorMessage(null);
     if (inProgress === InteractionStatus.None) {
-      instance.loginRedirect(loginRequest).catch(console.error);
+      try {
+        // Intentar primero loginPopup: no recarga la página, evita desincronizaciones de router y almacenamiento
+        const result = await instance.loginPopup(loginRequest);
+        if (result?.account) {
+          instance.setActiveAccount(result.account);
+        }
+      } catch (popupErr: unknown) {
+        console.warn("Fallo o bloqueo de popup, intentando redirección clásica:", popupErr);
+        try {
+          await instance.loginRedirect(loginRequest);
+        } catch (redirectErr: unknown) {
+          console.error("Error en loginRedirect:", redirectErr);
+          if (redirectErr instanceof Error) {
+            setErrorMessage(redirectErr.message);
+          } else {
+            setErrorMessage("Ocurrió un error inesperado al iniciar sesión con Azure AD.");
+          }
+        }
+      }
     }
   };
 
@@ -68,6 +89,25 @@ export function LoginPage() {
             Autenticación federada mediante <strong>Microsoft Azure Entra ID</strong> con tokens JWT protegidos.
           </div>
         </div>
+
+        {errorMessage && (
+          <div
+            style={{
+              background: "#fee2e2",
+              border: "1px solid #ef4444",
+              color: "#991b1b",
+              borderRadius: "8px",
+              padding: "0.85rem",
+              marginBottom: "1.5rem",
+              fontSize: "0.85rem",
+              textAlign: "left",
+              lineHeight: 1.4,
+            }}
+          >
+            <strong>⚠️ Error de autenticación:</strong>
+            <p style={{ margin: "0.25rem 0 0 0" }}>{errorMessage}</p>
+          </div>
+        )}
 
         <button
           onClick={handleLogin}

@@ -7,7 +7,7 @@ export const msalConfig: Configuration = {
     redirectUri: import.meta.env.VITE_AZURE_REDIRECT_URI || window.location.origin,
   },
   cache: {
-    cacheLocation: "sessionStorage",
+    cacheLocation: "localStorage",
   },
   system: {
     loggerOptions: {
@@ -20,7 +20,13 @@ export const msalConfig: Configuration = {
   },
 };
 
+// Scopes estándar de identidad para inicio de sesión en Azure AD
 export const loginRequest = {
+  scopes: ["openid", "profile", "offline_access"],
+};
+
+// Scopes específicos para invocar el API Gateway de AWS
+export const apiTokenRequest = {
   scopes: [
     import.meta.env.VITE_AZURE_API_SCOPE ||
       `api://${import.meta.env.VITE_AZURE_API_CLIENT_ID || "TU_API_CLIENT_ID"}/access_as_user`,

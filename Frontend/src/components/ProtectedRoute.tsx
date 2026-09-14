@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
-import { useIsAuthenticated } from "@azure/msal-react";
+import { useIsAuthenticated, useMsal } from "@azure/msal-react";
+import { InteractionStatus } from "@azure/msal-browser";
 import { useUserRole } from "../hooks/useUserRole";
 import type { UserRole } from "../types";
 import type { ReactNode } from "react";
@@ -10,8 +11,18 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+  const { inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const { role } = useUserRole();
+
+  // Si MSAL aún está procesando el redirect o iniciando, no redirigir todavía
+  if (inProgress !== InteractionStatus.None) {
+    return (
+      <div style={{ padding: "4rem", textAlign: "center", color: "#64748b" }}>
+        <p>Verificando sesión con Microsoft Entra ID...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
