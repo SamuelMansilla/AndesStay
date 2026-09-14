@@ -20,9 +20,9 @@ export const msalConfig: Configuration = {
   },
 };
 
-// Scopes estándar de identidad para inicio de sesión en Azure AD
+// Scopes estándar de identidad para inicio de sesión en Azure AD (según guía tutorial)
 export const loginRequest = {
-  scopes: ["openid", "profile", "offline_access"],
+  scopes: ["User.Read"],
 };
 
 // Scopes específicos para invocar el API Gateway de AWS
