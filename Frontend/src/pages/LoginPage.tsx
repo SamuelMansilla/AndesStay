@@ -13,26 +13,22 @@ export function LoginPage() {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const isAuthenticating =
+    inProgress === InteractionStatus.HandleRedirect ||
+    inProgress === InteractionStatus.Startup;
+
   const handleLogin = async () => {
     setErrorMessage(null);
     if (inProgress === InteractionStatus.None) {
       try {
-        // Intentar primero loginPopup: no recarga la página, evita desincronizaciones de router y almacenamiento
-        const result = await instance.loginPopup(loginRequest);
-        if (result?.account) {
-          instance.setActiveAccount(result.account);
-        }
-      } catch (popupErr: unknown) {
-        console.warn("Fallo o bloqueo de popup, intentando redirección clásica:", popupErr);
-        try {
-          await instance.loginRedirect(loginRequest);
-        } catch (redirectErr: unknown) {
-          console.error("Error en loginRedirect:", redirectErr);
-          if (redirectErr instanceof Error) {
-            setErrorMessage(redirectErr.message);
-          } else {
-            setErrorMessage("Ocurrió un error inesperado al iniciar sesión con Azure AD.");
-          }
+        // Redirección completa recomendada por Microsoft para SPAs (evita bucles y bloqueos de popups)
+        await instance.loginRedirect(loginRequest);
+      } catch (redirectErr: unknown) {
+        console.error("Error en loginRedirect:", redirectErr);
+        if (redirectErr instanceof Error) {
+          setErrorMessage(redirectErr.message);
+        } else {
+          setErrorMessage("Ocurrió un error inesperado al iniciar sesión con Azure AD.");
         }
       }
     }
@@ -109,35 +105,66 @@ export function LoginPage() {
           </div>
         )}
 
-        <button
-          onClick={handleLogin}
-          disabled={inProgress !== InteractionStatus.None}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.75rem",
-            background: "#0078d4",
-            color: "#ffffff",
-            border: "none",
-            padding: "0.85rem 1.25rem",
-            borderRadius: "6px",
-            fontSize: "1rem",
-            fontWeight: 600,
-            cursor: inProgress !== InteractionStatus.None ? "not-allowed" : "pointer",
-            boxShadow: "0 4px 6px -1px rgba(0, 120, 212, 0.4)",
-            transition: "background 0.2s",
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-            <path d="M1 1h9v9H1z" fill="#f25022" />
-            <path d="M11 1h9v9H11z" fill="#7fba00" />
-            <path d="M1 11h9v9H1z" fill="#00a4ef" />
-            <path d="M11 11h9v9H11z" fill="#ffb900" />
-          </svg>
-          {inProgress !== InteractionStatus.None ? "Cargando..." : "Iniciar sesión con Microsoft"}
-        </button>
+        {isAuthenticating ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "1rem",
+              padding: "1rem 0",
+            }}
+          >
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                border: "3px solid #e2e8f0",
+                borderTopColor: "#0078d4",
+                borderRadius: "50%",
+                animation: "andesstay-spin 0.8s linear infinite",
+              }}
+            />
+            <style>{`
+              @keyframes andesstay-spin {
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+            <p style={{ color: "#475569", fontSize: "0.95rem", fontWeight: 500, margin: 0 }}>
+              Autenticando con Microsoft Entra ID...
+            </p>
+          </div>
+        ) : (
+          <button
+            onClick={handleLogin}
+            disabled={inProgress !== InteractionStatus.None}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.75rem",
+              background: "#0078d4",
+              color: "#ffffff",
+              border: "none",
+              padding: "0.85rem 1.25rem",
+              borderRadius: "6px",
+              fontSize: "1rem",
+              fontWeight: 600,
+              cursor: inProgress !== InteractionStatus.None ? "not-allowed" : "pointer",
+              boxShadow: "0 4px 6px -1px rgba(0, 120, 212, 0.4)",
+              transition: "background 0.2s, opacity 0.2s",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+              <path d="M1 1h9v9H1z" fill="#f25022" />
+              <path d="M11 1h9v9H11z" fill="#7fba00" />
+              <path d="M1 11h9v9H1z" fill="#00a4ef" />
+              <path d="M11 11h9v9H11z" fill="#ffb900" />
+            </svg>
+            Iniciar sesión con Microsoft
+          </button>
+        )}
 
         <div style={{ marginTop: "1.5rem", fontSize: "0.75rem", color: "#94a3b8" }}>
           Red AndesStay &bull; Acceso para Administradores, Recepcionistas, Huéspedes y Auditores

@@ -55,14 +55,17 @@ A. Variables de Entorno (Frontend/.env)
    - VITE_API_GATEWAY_URL: Base URL del AWS API Gateway (https://api-gateway-url.aws.com/v2).
 
 B. Configuración de MSAL (Frontend/src/authConfig.ts)
-   - Configuración de `msalConfig` con cache en "sessionStorage".
+   - Configuración de `msalConfig` con cache en "localStorage" para persistencia cross-tab.
+   - `navigateToLoginRequestUrl: false` para evitar navegación redundante tras volver de Azure AD.
    - Omitido `storeAuthStateInCookie` debido a incompatibilidad con MSAL v5.
    - Configuración de `loginRequest` con scopes hacia el API.
    - Exportación de la instancia singleton `msalInstance`.
 
 C. Entrypoint y Sincronización Singleton (Frontend/src/main.tsx)
    - Se importa `msalInstance` desde authConfig para evitar instancias desincronizadas.
-   - Limpieza de caché huérfana en sessionStorage y localStorage.
+   - Registro de callback reactivo para `LOGIN_SUCCESS` y `ACQUIRE_TOKEN_SUCCESS` que
+     establece inmediatamente la cuenta activa (`setActiveAccount`).
+   - Procesamiento de redirección al inicio mediante `handleRedirectPromise()`.
 
 D. Cliente Axios con Interceptor (Frontend/src/api/axiosClient.ts)
    - Interceptor de petición que adquiere silenciosamente el token (`acquireTokenSilent`)
@@ -76,7 +79,9 @@ E. Componentes de Seguridad y Navegación
 
 F. Las 6 Pantallas del Caso (Frontend/src/pages/)
    1. `LoginPage.tsx` (/login):
-      Acceso público. Botón corporativo "Iniciar sesión con Microsoft".
+      Acceso público. Botón corporativo "Iniciar sesión con Microsoft" mediante flujo nativo
+      por redirección directa (`loginRedirect`). Indicador visual de autenticación y spinner
+      durante la resolución de la redirección.
    2. `DashboardPage.tsx` (/dashboard):
       Todos los autenticados. Vista adaptativa según rol (Admin: ocupación y KPIs;
       Recepcionista: check-in/out del día; Huésped: mis reservas; Auditor: resumen)
@@ -107,4 +112,50 @@ G. Enrutador Principal (Frontend/src/App.tsx)
 --------------------------------------------------------------------------------
 - Compilación TypeScript (tsc -b && vite build): EXITOSA (0 errores).
 - Linter ESLint (npm run lint): EXITOSO (0 errores, 0 advertencias).
+
+--------------------------------------------------------------------------------
+6. OPTIMIZACIÓN DEL FLUJO DE INICIO DE SESIÓN (DIAGNÓSTICO Y SOLUCIÓN)
+--------------------------------------------------------------------------------
+A. Causa Raíz del Problema Anterior:
+   1. Bucle de Popups:
+      - Anteriormente `LoginPage.tsx` utilizaba `instance.loginPopup(loginRequest)`
+        con `redirectUri` apuntando a `http://localhost:5173`.
+      - Al completarse el inicio de sesión en Microsoft, la ventana emergente era
+        redirigida a la raíz de la SPA, cargando la aplicación React entera dentro
+        de la pequeña ventana del popup.
+      - En esa ventana emergente, `main.tsx` ejecutaba `handleRedirectPromise()`,
+        lo cual borraba el hash (#code=...) de la URL.
+      - En consecuencia, la ventana padre nunca se enteraba de la finalización del
+        popup y quedaba en estado de espera permanente.
+      - A su vez, el popup volvía a renderizar la pantalla de LoginPage; si el
+        usuario pulsaba iniciar sesión allí, se abría un segundo popup, creando un
+        bucle anidado de ventanas.
+
+   2. Bloqueo del Botón y Retraso de 1 Minuto:
+      - La promesa de `loginPopup` en la ventana principal quedaba bloqueada
+        esperando el hash hasta que se cumplía el `windowHashTimeout` por defecto
+        de MSAL (exactamente 60 segundos / 1 minuto).
+      - El botón quedaba congelado mostrando "Cargando..." durante todo ese minuto.
+      - Solo al vencer el timeout de 60s, la promesa fallaba y la ventana leía los
+        tokens ya guardados en `localStorage` por el popup, permitiendo finalmente
+        entrar al Dashboard con 1 minuto de retraso.
+
+B. Solución Aplicada:
+   1. Migración a `loginRedirect(loginRequest)`:
+      - Flujo nativo recomendado por Microsoft para SPAs React.
+      - Redirección limpia en la misma pestaña hacia Microsoft Entra ID.
+      - 0 popups emergentes, 0 bloqueos por navegadores modernos.
+      - Retorno directo a `http://localhost:5173` procesado en < 1 segundo por
+        `handleRedirectPromise()` en `main.tsx`.
+   2. Experiencia de Usuario (UX) Optimizada:
+      - Estado `isAuthenticating` (`HandleRedirect` / `Startup`) que muestra un
+        spinner estilizado "Autenticando con Microsoft Entra ID..." mientras se
+        resuelven los claims.
+      - Transición instantánea al Dashboard una vez autenticado sin recargas
+        innecesarias (`navigateToLoginRequestUrl: false`).
+   3. Integridad de Tokens JWT y AWS API Gateway:
+      - Se mantiene inalterado el esquema de tokens: los scopes de API
+        (`apiTokenRequest`), la adquisición silenciosa (`acquireTokenSilent`)
+        y la inyección del header `Authorization: Bearer <token>` en `axiosClient.ts`
+        siguen operando con total normalidad.
 ================================================================================

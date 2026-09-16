@@ -12,7 +12,11 @@ async function main() {
 
     // 1. Registrar callback de eventos ANTES de resolver redirección
     msalInstance.addEventCallback((event: EventMessage) => {
-        if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
+        if (
+            (event.eventType === EventType.LOGIN_SUCCESS ||
+             event.eventType === EventType.ACQUIRE_TOKEN_SUCCESS) &&
+            event.payload
+        ) {
             const payload = event.payload as AuthenticationResult;
             if (payload.account) {
                 msalInstance.setActiveAccount(payload.account);
