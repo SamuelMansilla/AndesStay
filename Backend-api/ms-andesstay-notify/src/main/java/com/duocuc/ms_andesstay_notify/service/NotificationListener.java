@@ -1,39 +1,36 @@
 package com.duocuc.ms_andesstay_notify.service;
 
 import com.duocuc.ms_andesstay_notify.model.NotificationEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 public class NotificationListener {
 
-    /**
-     * Consume mensajes para envío de Email/Push al huésped[cite: 2].
-     */
-    @RabbitListener(queues = "q.cmd.email")
-    public void processEmailCommand(NotificationEvent event) {
-        System.out.println("Procesando envío de EMAIL. TraceID: " + event.getTraceId());
-        System.out.println("Payload: " + event.getPayload());
-        // Aquí iría la lógica de integración con un SMTP o servicio como SendGrid
+    private static final Logger log = LoggerFactory.getLogger(NotificationListener.class);
+
+    @RabbitListener(queues = "${andesstay.rabbitmq.queue.email}")
+    public void processEmailNotification(NotificationEvent event) {
+        log.info("[EMAIL] Enviado a: {} para la reserva #{}. Contenido: {}", 
+                event.getRecipient(), event.getReservationId(), event.getBody());
     }
 
-    /**
-     * Consume mensajes para generar el ticket de preparación de unidad[cite: 2].
-     */
-    @RabbitListener(queues = "q.cmd.housekeeping")
-    public void processHousekeepingCommand(NotificationEvent event) {
-        System.out.println("Procesando ticket de HOUSEKEEPING. TraceID: " + event.getTraceId());
-        System.out.println("Payload: " + event.getPayload());
-        // Aquí iría la lógica para enviar el ticket al sistema del personal de limpieza
+    @RabbitListener(queues = "${andesstay.rabbitmq.queue.sms}")
+    public void processSmsNotification(NotificationEvent event) {
+        log.info("[SMS] Enviado a: {}. Mensaje: {}", 
+                event.getRecipient(), event.getBody());
     }
 
-    /**
-     * Consume mensajes para la generación de PDF (voucher de reserva o boleta)[cite: 2].
-     */
-    @RabbitListener(queues = "q.cmd.voucher")
-    public void processVoucherCommand(NotificationEvent event) {
-        System.out.println("Procesando generación de VOUCHER PDF. TraceID: " + event.getTraceId());
-        System.out.println("Payload: " + event.getPayload());
-        // Aquí iría la lógica de generación del PDF y almacenamiento
+    @RabbitListener(queues = "${andesstay.rabbitmq.queue.push}")
+    public void processPushNotification(NotificationEvent event) {
+        log.info("[PUSH] Enviada alerta a: {}. Notificación: {}", 
+                event.getRecipient(), event.getBody());
+    }
+
+    @RabbitListener(queues = "${andesstay.rabbitmq.queue.dlq}")
+    public void processDeadLetter(NotificationEvent event) {
+        log.warn("[DLQ] Evento en cola de fallos (Dead Letter Queue): {}", event);
     }
 }
