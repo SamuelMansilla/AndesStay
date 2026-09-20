@@ -9,25 +9,19 @@ import java.util.List;
 
 public class AudienceValidator implements OAuth2TokenValidator<Jwt> {
 
-    private final List<String> allowedAudiences;
+    private final String audience;
 
-    public AudienceValidator(List<String> allowedAudiences) {
-        this.allowedAudiences = allowedAudiences;
+    public AudienceValidator(String audience) {
+        this.audience = audience;
     }
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt jwt) {
-        List<String> tokenAudiences = jwt.getAudience();
-
-        if (tokenAudiences != null && tokenAudiences.stream().anyMatch(allowedAudiences::contains)) {
+        List<String> audiences = jwt.getAudience();
+        if (audiences != null && audiences.contains(this.audience)) {
             return OAuth2TokenValidatorResult.success();
         }
-
-        OAuth2Error error = new OAuth2Error(
-                "invalid_token",
-                "El audience del JWT no coincide con el autorizado para AndesStay.",
-                null
-        );
+        OAuth2Error error = new OAuth2Error("invalid_token", "The required audience is missing", null);
         return OAuth2TokenValidatorResult.failure(error);
     }
 }
