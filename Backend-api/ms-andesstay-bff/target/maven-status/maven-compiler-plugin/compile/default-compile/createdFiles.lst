@@ -1,0 +1,6 @@
+cl\duoc\andesstay\ms_andesstay_bff\config\AudienceValidator.class
+cl\duoc\andesstay\ms_andesstay_bff\MsAndesstayBffApplication.class
+cl\duoc\andesstay\ms_andesstay_bff\config\JwtRoleConverter.class
+cl\duoc\andesstay\ms_andesstay_bff\config\SecurityConfig.class
+cl\duoc\andesstay\ms_andesstay_bff\config\WebClientConfig.class
+cl\duoc\andesstay\ms_andesstay_bff\controller\BffReservationsController.class
