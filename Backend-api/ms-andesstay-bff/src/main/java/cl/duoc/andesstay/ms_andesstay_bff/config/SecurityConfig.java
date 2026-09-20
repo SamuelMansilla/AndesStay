@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -27,16 +28,18 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.audiences}")
     private List<String> audiences;
 
+    // Ignora los filtros de seguridad para actuator y endpoints públicos
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web) -> web.ignoring().requestMatchers("/actuator/**", "/public/**");
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Diagnóstico / Rutas públicas
-                .requestMatchers("/actuator/health", "/public/**").permitAll()
-
-                // Reglas según caso AndesStay
                 // Catálogo de unidades
                 .requestMatchers(HttpMethod.POST, "/api/catalog/**").hasRole("Admin")
                 .requestMatchers(HttpMethod.PUT, "/api/catalog/**").hasRole("Admin")
@@ -51,9 +54,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/report/**").hasRole("Admin")
                 .requestMatchers("/api/audit/**").hasAnyRole("Admin", "Auditor")
 
+                // Notificaciones
+                .requestMatchers("/api/notify/**").hasAnyRole("Admin", "Recepcionista")
+
+                // Cualquier otra petición debe estar autenticada
                 .anyRequest().authenticated()
             )
-            // Manejador estructurado de respuestas de error (401 y 403) exigido en rúbrica
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setContentType("application/json;charset=UTF-8");
@@ -84,14 +90,14 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+        String jwkSetUri = "https://login.microsoftonline.com/common/discovery/v2.0/keys";
+        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
 
-        // Validador de emisor y vigencia (exp)
-        OAuth2TokenValidator<Jwt> defaultWithIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
-        // Validador de audience
         OAuth2TokenValidator<Jwt> audienceValidator = new AudienceValidator(audiences);
-
-        OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(defaultWithIssuer, audienceValidator);
+        OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(
+                new JwtTimestampValidator(),
+                audienceValidator
+        );
         jwtDecoder.setJwtValidator(combinedValidator);
 
         return jwtDecoder;
