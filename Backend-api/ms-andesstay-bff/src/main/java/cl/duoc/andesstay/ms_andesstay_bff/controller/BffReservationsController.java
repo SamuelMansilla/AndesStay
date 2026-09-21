@@ -11,7 +11,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping("/api/reservations")
+@RequestMapping({"/api/v1/reservations", "/api/reservations"})
 @CrossOrigin(origins = "*")
 public class BffReservationsController {
 
