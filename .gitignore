@@ -1,0 +1,23 @@
+# Maven target dirs
+target/
+**/target/
+*.class
+
+# Node / Frontend
+node_modules/
+Frontend/node_modules/
+Frontend/dist/
+dist/
+
+# Logs and OS
+*.log
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath

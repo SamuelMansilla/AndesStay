@@ -1,46 +1,8 @@
 import { useState, useEffect } from "react";
 import { useUserRole } from "../hooks/useUserRole";
-import type { Reservation, ReservationStatus } from "../types";
-import axiosClient from "../api/axiosClient";
-
-const INITIAL_RESERVATIONS: Reservation[] = [
-  {
-    id: "RES-101",
-    guestName: "Carlos Mendoza",
-    guestEmail: "carlos.mendoza@email.com",
-    unitId: "U-1",
-    unitName: "Cabaña Los Alerces #1",
-    checkInDate: "2026-09-12",
-    checkOutDate: "2026-09-15",
-    status: "CONFIRMADA",
-    totalPrice: 240000,
-    createdAt: "2026-09-08 14:20",
-  },
-  {
-    id: "RES-102",
-    guestName: "Andrea Morales",
-    guestEmail: "andrea.m@email.com",
-    unitId: "U-2",
-    unitName: "Habitación Vista Lago 201",
-    checkInDate: "2026-09-10",
-    checkOutDate: "2026-09-13",
-    status: "CHECKIN_PENDIENTE",
-    totalPrice: 180000,
-    createdAt: "2026-09-09 10:15",
-  },
-  {
-    id: "RES-103",
-    guestName: "Roberto Silva",
-    guestEmail: "rsilva@email.com",
-    unitId: "U-3",
-    unitName: "Lodge Refugio Andino",
-    checkInDate: "2026-09-14",
-    checkOutDate: "2026-09-18",
-    status: "CREADA",
-    totalPrice: 320000,
-    createdAt: "2026-09-10 09:00",
-  },
-];
+import type { Reservation, ReservationStatus, Unit } from "../types";
+import { reservationsService } from "../api/reservationsService";
+import { catalogService } from "../api/catalogService";
 
 const VALID_STATUS_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
   CREADA: ["CONFIRMADA", "CANCELADA"],
@@ -51,108 +13,149 @@ const VALID_STATUS_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> =
   CANCELADA: [],
 };
 
-const UNIT_MAP: Record<string, string> = {
-  "Cabaña Los Alerces #1": "U-1",
-  "Habitación Vista Lago 201": "U-2",
-  "Lodge Refugio Andino": "U-3",
-};
-
 export function ReservationsPage() {
   const { role, user } = useUserRole();
-  const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("TODOS");
+
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form state
   const [guestName, setGuestName] = useState(role === "Huésped" ? user.name : "");
   const [guestEmail, setGuestEmail] = useState(role === "Huésped" ? user.username : "");
-  const [unitName, setUnitName] = useState("Cabaña Los Alerces #1");
+  const [selectedUnitId, setSelectedUnitId] = useState<string | number>("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
 
   const canChangeStatus = role === "Admin" || role === "Recepcionista";
   const canCreate = role === "Admin" || role === "Recepcionista" || role === "Huésped";
 
-  // Cargar reservas desde el Backend al iniciar el componente
-  const loadReservations = async () => {
+  const refreshReservations = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const response = await axiosClient.get("/api/v1/reservations");
-      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        setReservations(response.data);
+      const [resList, unitList] = await Promise.all([
+        reservationsService.getReservations(),
+        catalogService.getUnits().catch(() => [] as Unit[]),
+      ]);
+
+      setUnits(unitList);
+      if (unitList.length > 0 && !selectedUnitId) {
+        setSelectedUnitId(unitList[0].id);
       }
-    } catch (error) {
-      console.warn("⚠️ No se pudieron cargar reservas del backend, usando datos locales:", error);
+
+      if (role === "Huésped") {
+        const myEmail = user.username?.toLowerCase();
+        setReservations(resList.filter((r) => r.guestEmail?.toLowerCase() === myEmail));
+      } else {
+        setReservations(resList);
+      }
+    } catch (err: unknown) {
+      console.error("Error al cargar reservas:", err);
+      setError("No se pudieron cargar las reservas desde la API. Mostrando datos disponibles.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadReservations();
-  }, []);
+    let isMounted = true;
+    Promise.all([
+      reservationsService.getReservations(),
+      catalogService.getUnits().catch(() => [] as Unit[]),
+    ])
+      .then(([resList, unitList]) => {
+        if (isMounted) {
+          setUnits(unitList);
+          if (unitList.length > 0 && !selectedUnitId) {
+            setSelectedUnitId(unitList[0].id);
+          }
+          if (role === "Huésped") {
+            const myEmail = user.username?.toLowerCase();
+            setReservations(resList.filter((r) => r.guestEmail?.toLowerCase() === myEmail));
+          } else {
+            setReservations(resList);
+          }
+          setLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (isMounted) {
+          console.error("Error al cargar reservas:", err);
+          setError("No se pudieron cargar las reservas desde la API. Mostrando datos disponibles.");
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [role, user.username, selectedUnitId]);
 
   const handleStatusChange = async (
-    reservationId: string,
+    reservationId: string | number,
     currentStatus: ReservationStatus,
     newStatus: ReservationStatus
   ) => {
+    // Regla clave del caso: No se puede hacer check-in (EN_ESTADÍA) sin haber estado CONFIRMADA o CHECKIN_PENDIENTE
     if (newStatus === "EN_ESTADÍA" && currentStatus === "CREADA") {
       alert("Violación de regla: No se puede hacer check-in sin CONFIRMAR la reserva previamente.");
       return;
     }
 
     try {
-      // Intentar persistir cambio de estado en el backend
-      await axiosClient.patch(`/api/v1/reservations/${reservationId}/status`, { status: newStatus });
-    } catch {
-      // Si el endpoint patch no está definido, se actualiza localmente
-      console.log("Aviso: Estado actualizado localmente");
+      await reservationsService.updateReservationStatus(reservationId, newStatus);
+      setReservations((prev) =>
+        prev.map((r) => (r.id === reservationId ? { ...r, status: newStatus } : r))
+      );
+    } catch (err: unknown) {
+      console.error("Error al actualizar estado en API:", err);
+      alert("No se pudo actualizar el estado en el backend. Revisa la consola o permisos.");
     }
-
-    setReservations((prev) =>
-      prev.map((r) => (r.id === reservationId ? { ...r, status: newStatus } : r))
-    );
   };
 
   const handleCreateReservation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!guestName || !checkIn || !checkOut) return;
+    if (!guestEmail || !checkIn || !checkOut || !selectedUnitId) {
+      alert("Por favor completa todos los campos obligatorios.");
+      return;
+    }
 
-    const payload = {
-      guestName,
-      guestEmail: guestEmail || "cliente@andesstay.cl",
-      unitId: UNIT_MAP[unitName] || "U-1",
-      unitName,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      status: "CREADA",
-      totalPrice: 150000,
-    };
-
+    setIsSubmitting(true);
     try {
-      console.log("🚀 Enviando reserva a través de AWS API Gateway:", payload);
+      const payload = {
+        guestEmail,
+        unitId: Number(selectedUnitId),
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+      };
 
-      // LLAMADA HTTP REAL AL BACKEND (POST /api/v1/reservations)
-      const response = await axiosClient.post("/api/v1/reservations", payload);
-      console.log("✅ Respuesta recibida del Backend:", response.data);
-
-      const savedReservation: Reservation = response.data?.id
-        ? response.data
-        : {
-            ...payload,
-            id: `RES-${Math.floor(100 + Math.random() * 900)}`,
-            createdAt: new Date().toISOString().substring(0, 16).replace("T", " "),
-          };
-
-      setReservations((prev) => [savedReservation, ...prev]);
+      const created = await reservationsService.createReservation(payload);
+      setReservations((prev) => [created, ...prev]);
       setShowCreateModal(false);
       setCheckIn("");
       setCheckOut("");
-    } catch (error) {
-      console.error("❌ Falló el envío al API Gateway:", error);
-      alert("Error al enviar la reserva al servidor. Revisa la consola F12.");
+      alert("¡Reserva creada exitosamente!");
+    } catch (err: unknown) {
+      console.error("Error al crear reserva en API:", err);
+      alert("Error al registrar la reserva en el servidor. Verifica las fechas y la unidad.");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const filteredReservations = reservations.filter((r) => {
+    if (statusFilter !== "TODOS" && r.status !== statusFilter) return false;
+    return true;
+  });
+
+  const getUnitName = (unitId: string | number) => {
+    const found = units.find((u) => String(u.id) === String(unitId));
+    return found ? found.name : `Unidad #${unitId}`;
   };
 
   return (
@@ -161,28 +164,80 @@ export function ReservationsPage() {
         <div>
           <h1 style={{ margin: 0, color: "#0f172a" }}>Gestión de Reservas</h1>
           <p style={{ color: "#64748b", margin: "0.25rem 0 0 0" }}>
-            Módulo de reservas web y control de flujo de estadía.
+            Módulo de reservas web sincronizado en tiempo real con microservicios.
           </p>
         </div>
-        {canCreate && (
+        <div style={{ display: "flex", gap: "0.75rem" }}>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={refreshReservations}
+            disabled={loading}
             style={{
-              background: "#2563eb",
-              color: "white",
-              border: "none",
-              padding: "0.6rem 1.25rem",
+              background: "#f1f5f9",
+              color: "#334155",
+              border: "1px solid #cbd5e1",
+              padding: "0.6rem 1rem",
               borderRadius: "6px",
               fontWeight: 600,
               cursor: "pointer",
             }}
           >
-            + Nueva Reserva
+            {loading ? "Cargando..." : "↻ Refrescar"}
           </button>
-        )}
+          {canCreate && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                background: "#2563eb",
+                color: "white",
+                border: "none",
+                padding: "0.6rem 1.25rem",
+                borderRadius: "6px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              + Nueva Reserva
+            </button>
+          )}
+        </div>
       </div>
 
-      {loading && <p style={{ color: "#2563eb" }}>Cargando reservas desde AWS...</p>}
+      {error && (
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            marginBottom: "1rem",
+            background: "#fffbeb",
+            color: "#b45309",
+            borderRadius: "6px",
+            border: "1px solid #fde68a",
+            fontSize: "0.875rem",
+          }}
+        >
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* FILTROS */}
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", alignItems: "center" }}>
+        <label style={{ fontSize: "0.85rem", color: "#475569", fontWeight: 600 }}>Filtrar por Estado:</label>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ padding: "0.4rem 0.75rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.85rem" }}
+        >
+          <option value="TODOS">Todos los estados</option>
+          <option value="CREADA">CREADA</option>
+          <option value="CONFIRMADA">CONFIRMADA</option>
+          <option value="CHECKIN_PENDIENTE">CHECKIN_PENDIENTE</option>
+          <option value="EN_ESTADÍA">EN_ESTADÍA</option>
+          <option value="CHECKOUT">CHECKOUT</option>
+          <option value="CANCELADA">CANCELADA</option>
+        </select>
+        <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+          Mostrando {filteredReservations.length} reservas
+        </span>
+      </div>
 
       {/* MODAL CREAR */}
       {showCreateModal && (
@@ -217,42 +272,50 @@ export function ReservationsPage() {
                 </label>
                 <input
                   type="text"
-                  required
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Nombre completo"
                   style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
               <div style={{ marginBottom: "1rem" }}>
                 <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                  Correo Electrónico
+                  Correo Electrónico (Huésped) *
                 </label>
                 <input
                   type="email"
                   required
                   value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
+                  placeholder="correo@ejemplo.com"
                   style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
               <div style={{ marginBottom: "1rem" }}>
                 <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                  Unidad
+                  Unidad de Hospedaje *
                 </label>
                 <select
-                  value={unitName}
-                  onChange={(e) => setUnitName(e.target.value)}
+                  value={selectedUnitId}
+                  onChange={(e) => setSelectedUnitId(e.target.value)}
                   style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
+                  required
                 >
-                  <option value="Cabaña Los Alerces #1">Cabaña Los Alerces #1</option>
-                  <option value="Habitación Vista Lago 201">Habitación Vista Lago 201</option>
-                  <option value="Lodge Refugio Andino">Lodge Refugio Andino</option>
+                  {units.length === 0 ? (
+                    <option value="">Cargando unidades del catálogo...</option>
+                  ) : (
+                    units.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.type}) - ${Number(u.price || u.pricePerNight || 0).toLocaleString()} / noche
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                    Check-in
+                    Check-in *
                   </label>
                   <input
                     type="date"
@@ -264,7 +327,7 @@ export function ReservationsPage() {
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                    Check-out
+                    Check-out *
                   </label>
                   <input
                     type="date"
@@ -285,9 +348,17 @@ export function ReservationsPage() {
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: "0.5rem 1rem", background: "#2563eb", color: "white", border: "none", borderRadius: "4px" }}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#2563eb",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: isSubmitting ? "not-allowed" : "pointer",
+                  }}
                 >
-                  Confirmar y Guardar
+                  {isSubmitting ? "Guardando..." : "Confirmar y Guardar"}
                 </button>
               </div>
             </form>
@@ -300,7 +371,7 @@ export function ReservationsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.9rem" }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569" }}>
-              <th style={{ padding: "0.75rem 1rem" }}>Código</th>
+              <th style={{ padding: "0.75rem 1rem" }}>ID</th>
               <th style={{ padding: "0.75rem 1rem" }}>Huésped</th>
               <th style={{ padding: "0.75rem 1rem" }}>Unidad</th>
               <th style={{ padding: "0.75rem 1rem" }}>Fechas</th>
@@ -309,42 +380,63 @@ export function ReservationsPage() {
             </tr>
           </thead>
           <tbody>
-            {reservations.map((res) => (
-              <tr key={res.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td style={{ padding: "0.75rem 1rem", fontWeight: 700 }}>{res.id}</td>
-                <td style={{ padding: "0.75rem 1rem" }}>
-                  <div>{res.guestName}</div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{res.guestEmail}</div>
-                </td>
-                <td style={{ padding: "0.75rem 1rem" }}>{res.unitName}</td>
-                <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem" }}>
-                  {res.checkInDate} &rarr; {res.checkOutDate}
-                </td>
-                <td style={{ padding: "0.75rem 1rem" }}>
-                  <span style={statusBadgeStyle(res.status)}>{res.status}</span>
-                </td>
-                <td style={{ padding: "0.75rem 1rem" }}>
-                  {canChangeStatus ? (
-                    <select
-                      value={res.status}
-                      onChange={(e) => handleStatusChange(res.id, res.status, e.target.value as ReservationStatus)}
-                      style={{ padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.8rem", border: "1px solid #cbd5e1" }}
-                    >
-                      <option value={res.status} disabled>
-                        Actual: {res.status}
-                      </option>
-                      {VALID_STATUS_TRANSITIONS[res.status].map((targetStatus) => (
-                        <option key={targetStatus} value={targetStatus}>
-                          &rarr; {targetStatus}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Solo lectura</span>
-                  )}
+            {loading ? (
+              <tr>
+                <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
+                  Cargando reservas desde la API...
                 </td>
               </tr>
-            ))}
+            ) : filteredReservations.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
+                  No se encontraron reservas para el criterio seleccionado.
+                </td>
+              </tr>
+            ) : (
+              filteredReservations.map((res) => (
+                <tr key={res.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <td style={{ padding: "0.75rem 1rem", fontWeight: 700 }}>#{res.id}</td>
+                  <td style={{ padding: "0.75rem 1rem" }}>
+                    <div>{res.guestName || "Huésped"}</div>
+                    <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{res.guestEmail}</div>
+                  </td>
+                  <td style={{ padding: "0.75rem 1rem" }}>{res.unitName || getUnitName(res.unitId)}</td>
+                  <td style={{ padding: "0.75rem 1rem", fontSize: "0.85rem" }}>
+                    {res.checkInDate} &rarr; {res.checkOutDate}
+                  </td>
+                  <td style={{ padding: "0.75rem 1rem" }}>
+                    <span style={statusBadgeStyle(res.status)}>{res.status}</span>
+                  </td>
+                  <td style={{ padding: "0.75rem 1rem" }}>
+                    {canChangeStatus ? (
+                      <select
+                        value={res.status}
+                        onChange={(e) =>
+                          handleStatusChange(res.id, res.status, e.target.value as ReservationStatus)
+                        }
+                        style={{
+                          padding: "0.25rem 0.5rem",
+                          borderRadius: "4px",
+                          fontSize: "0.8rem",
+                          border: "1px solid #cbd5e1",
+                        }}
+                      >
+                        <option value={res.status} disabled>
+                          Actual: {res.status}
+                        </option>
+                        {VALID_STATUS_TRANSITIONS[res.status]?.map((targetStatus) => (
+                          <option key={targetStatus} value={targetStatus}>
+                            &rarr; {targetStatus}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Solo lectura</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

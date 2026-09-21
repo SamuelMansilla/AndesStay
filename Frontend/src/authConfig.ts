@@ -20,17 +20,17 @@ export const msalConfig: Configuration = {
   },
 };
 
-// Scopes estándar de identidad para inicio de sesión en Azure AD (según guía tutorial)
-export const loginRequest = {
-  scopes: ["User.Read"],
-};
-
-// Scopes específicos para invocar el API Gateway de AWS
+// Scopes específicos para invocar el API Gateway de AWS y el BFF
 export const apiTokenRequest = {
   scopes: [
     import.meta.env.VITE_AZURE_API_SCOPE ||
       `api://${import.meta.env.VITE_AZURE_API_CLIENT_ID || "TU_API_CLIENT_ID"}/access_as_user`,
   ],
+};
+
+// Scopes combinados para inicio de sesión en Azure AD (incluye scopes de usuario y del API)
+export const loginRequest = {
+  scopes: ["User.Read", ...apiTokenRequest.scopes],
 };
 
 export const msalInstance = new PublicClientApplication(msalConfig);

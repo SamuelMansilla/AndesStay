@@ -9,41 +9,60 @@ export type ReservationStatus =
   | "CANCELADA";
 
 export interface Reservation {
-  id: string;
-  guestName: string;
+  id: string | number;
+  guestName?: string;
   guestEmail: string;
-  unitId: string;
-  unitName: string;
+  unitId: string | number;
+  unitName?: string;
   checkInDate: string;
   checkOutDate: string;
   status: ReservationStatus;
-  totalPrice: number;
+  totalPrice?: number;
   createdAt: string;
 }
 
+export interface CreateReservationRequest {
+  guestEmail: string;
+  unitId: number;
+  checkInDate: string;
+  checkOutDate: string;
+}
+
 export interface Unit {
-  id: string;
+  id: string | number;
   name: string;
-  type: "Habitación" | "Cabaña" | "Lodge";
+  type: "Habitación" | "Cabaña" | "Lodge" | string;
   capacity: number;
-  pricePerNight: number;
+  price?: number;
+  pricePerNight?: number;
   available: boolean;
-  amenities: string[];
+  amenities?: string[];
 }
 
 export interface AuditEvent {
-  id: string;
-  reservationId: string;
-  action: string;
-  performedBy: string;
+  id: string | number;
+  reservationId?: string;
+  action?: string;
+  performedBy?: string;
+  actor?: string;
   timestamp: string;
-  details: string;
-  eventType: "CREACION" | "CONFIRMACION" | "CHECK_IN" | "CHECK_OUT" | "CANCELACION";
+  details?: string;
+  payload?: string;
+  eventType: string;
 }
 
 export interface KpiSummary {
   reservationsToday: number;
   activeOccupancyRate: number; // Porcentaje
   averageCycleHours: number;
-  topUnits: { name: string; bookings: number }[];
+  totalReservations?: number;
+  range?: string;
+  topUnits?: { name: string; bookings: number; revenue?: string }[];
+}
+
+export interface TopUnitItem {
+  unitId?: number;
+  name: string;
+  bookings: number;
+  revenue?: string | number;
 }
