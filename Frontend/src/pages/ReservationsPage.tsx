@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUserRole } from "../hooks/useUserRole";
 import type { Reservation, ReservationStatus } from "../types";
+import axiosClient from "../api/axiosClient";
 
 const INITIAL_RESERVATIONS: Reservation[] = [
   {
@@ -50,10 +51,17 @@ const VALID_STATUS_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> =
   CANCELADA: [],
 };
 
+const UNIT_MAP: Record<string, string> = {
+  "Cabaña Los Alerces #1": "U-1",
+  "Habitación Vista Lago 201": "U-2",
+  "Lodge Refugio Andino": "U-3",
+};
+
 export function ReservationsPage() {
   const { role, user } = useUserRole();
   const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Form state
   const [guestName, setGuestName] = useState(role === "Huésped" ? user.name : "");
@@ -65,11 +73,41 @@ export function ReservationsPage() {
   const canChangeStatus = role === "Admin" || role === "Recepcionista";
   const canCreate = role === "Admin" || role === "Recepcionista" || role === "Huésped";
 
-  const handleStatusChange = (reservationId: string, currentStatus: ReservationStatus, newStatus: ReservationStatus) => {
-    // Regla clave del caso: No se puede hacer check-in (EN_ESTADÍA) sin haber estado CONFIRMAR / CHECKIN_PENDIENTE
+  // Cargar reservas desde el Backend al iniciar el componente
+  const loadReservations = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosClient.get("/api/v1/reservations");
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        setReservations(response.data);
+      }
+    } catch (error) {
+      console.warn("⚠️ No se pudieron cargar reservas del backend, usando datos locales:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReservations();
+  }, []);
+
+  const handleStatusChange = async (
+    reservationId: string,
+    currentStatus: ReservationStatus,
+    newStatus: ReservationStatus
+  ) => {
     if (newStatus === "EN_ESTADÍA" && currentStatus === "CREADA") {
       alert("Violación de regla: No se puede hacer check-in sin CONFIRMAR la reserva previamente.");
       return;
+    }
+
+    try {
+      // Intentar persistir cambio de estado en el backend
+      await axiosClient.patch(`/api/v1/reservations/${reservationId}/status`, { status: newStatus });
+    } catch {
+      // Si el endpoint patch no está definido, se actualiza localmente
+      console.log("Aviso: Estado actualizado localmente");
     }
 
     setReservations((prev) =>
@@ -77,27 +115,44 @@ export function ReservationsPage() {
     );
   };
 
-  const handleCreateReservation = (e: React.FormEvent) => {
+  const handleCreateReservation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestName || !checkIn || !checkOut) return;
 
-    const newRes: Reservation = {
-      id: `RES-${Math.floor(100 + Math.random() * 900)}`,
+    const payload = {
       guestName,
       guestEmail: guestEmail || "cliente@andesstay.cl",
-      unitId: `U-${Math.floor(1 + Math.random() * 5)}`,
+      unitId: UNIT_MAP[unitName] || "U-1",
       unitName,
       checkInDate: checkIn,
       checkOutDate: checkOut,
       status: "CREADA",
       totalPrice: 150000,
-      createdAt: new Date().toISOString().substring(0, 16).replace("T", " "),
     };
 
-    setReservations([newRes, ...reservations]);
-    setShowCreateModal(false);
-    setCheckIn("");
-    setCheckOut("");
+    try {
+      console.log("🚀 Enviando reserva a través de AWS API Gateway:", payload);
+
+      // LLAMADA HTTP REAL AL BACKEND (POST /api/v1/reservations)
+      const response = await axiosClient.post("/api/v1/reservations", payload);
+      console.log("✅ Respuesta recibida del Backend:", response.data);
+
+      const savedReservation: Reservation = response.data?.id
+        ? response.data
+        : {
+            ...payload,
+            id: `RES-${Math.floor(100 + Math.random() * 900)}`,
+            createdAt: new Date().toISOString().substring(0, 16).replace("T", " "),
+          };
+
+      setReservations((prev) => [savedReservation, ...prev]);
+      setShowCreateModal(false);
+      setCheckIn("");
+      setCheckOut("");
+    } catch (error) {
+      console.error("❌ Falló el envío al API Gateway:", error);
+      alert("Error al enviar la reserva al servidor. Revisa la consola F12.");
+    }
   };
 
   return (
@@ -126,6 +181,8 @@ export function ReservationsPage() {
           </button>
         )}
       </div>
+
+      {loading && <p style={{ color: "#2563eb" }}>Cargando reservas desde AWS...</p>}
 
       {/* MODAL CREAR */}
       {showCreateModal && (
