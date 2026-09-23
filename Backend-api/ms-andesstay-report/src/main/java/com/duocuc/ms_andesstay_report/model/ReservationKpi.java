@@ -20,6 +20,9 @@ public class ReservationKpi {
     @Column(nullable = false)
     private String status;
 
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
     @Column(nullable = false)
     private LocalDateTime eventTimestamp;
 
@@ -30,10 +33,15 @@ public class ReservationKpi {
     }
 
     public ReservationKpi(Long reservationId, Long unitId, String status, LocalDateTime eventTimestamp) {
+        this(reservationId, unitId, status, eventTimestamp, eventTimestamp);
+    }
+
+    public ReservationKpi(Long reservationId, Long unitId, String status, LocalDateTime eventTimestamp, LocalDateTime createdAt) {
         this.reservationId = reservationId;
         this.unitId = unitId;
         this.status = status;
         this.eventTimestamp = eventTimestamp;
+        this.createdAt = createdAt != null ? createdAt : eventTimestamp;
     }
 
     @PrePersist
@@ -41,6 +49,9 @@ public class ReservationKpi {
         this.registeredAt = LocalDateTime.now();
         if (this.eventTimestamp == null) {
             this.eventTimestamp = LocalDateTime.now();
+        }
+        if (this.createdAt == null) {
+            this.createdAt = this.eventTimestamp;
         }
     }
 
@@ -74,6 +85,14 @@ public class ReservationKpi {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
     public LocalDateTime getEventTimestamp() {

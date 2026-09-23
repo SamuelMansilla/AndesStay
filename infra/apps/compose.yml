@@ -1,0 +1,152 @@
+version: "3.9"
+
+# ─── Docker Compose de Microservicios AndesStay — Caso 5 ──────────────────────
+#
+# VARIABLES DE ENTORNO REQUERIDAS en EC2 (.env o export):
+#   KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29093,kafka-3:29094
+#   KAFKA_ENABLED=true
+#   RABBITMQ_HOST=rabbitmq-1
+#   RABBITMQ_PORT=5672
+#   RABBITMQ_USER=andesstay
+#   RABBITMQ_PASS=AndesStay2024!
+#   RABBITMQ_VHOST=andesstay
+#   DB_URL=jdbc:postgresql://aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
+#   DB_USER=postgres.rqoexnwaqkoqfkdccoaw
+#   DB_PASS=<supabase-password>
+#   AZURE_ISSUER_URI=https://login.microsoftonline.com/00d7b2a1-2793-4a06-883e-c37b29134049/v2.0
+#   AZURE_AUDIENCE=api://130c7bbc-6cfa-473f-b953-13c1ef4c2156
+#
+# USO:
+#   docker compose -f infra/apps/compose.yml up -d
+#   docker compose -f infra/apps/compose.yml logs -f
+#
+# NOTA: Para entorno LOCAL sin Kafka, omitir KAFKA_ENABLED (default false).
+#       El fallback HTTP entre servicios garantiza que reportería y auditoría
+#       reciban eventos inmediatamente aun sin broker.
+
+services:
+  # ─── BFF (Backend For Frontend) — Puerto 8080 ─────────────────────────────
+  bff-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-bff
+      dockerfile: Dockerfile
+    container_name: bff-svc
+    image: andesstay/bff:latest
+    ports:
+      - "8080:8080"
+    environment:
+      SERVICES_RESERVATIONS_URL: http://reservations-svc:8081
+      SERVICES_CATALOG_URL: http://catalog-svc:8082
+      SERVICES_NOTIFY_URL: http://notify-svc:8083
+      SERVICES_REPORT_URL: http://report-svc:8084
+      SERVICES_AUDIT_URL: http://audit-svc:8085
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AZURE_ISSUER_URI}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES: ${AZURE_AUDIENCE}
+    restart: unless-stopped
+    depends_on:
+      - reservations-svc
+      - catalog-svc
+      - report-svc
+      - audit-svc
+    networks:
+      - andesstay-apps
+
+  # ─── Microservicio de Reservas — Puerto 8081 ───────────────────────────────
+  reservations-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-reservations
+      dockerfile: Dockerfile
+    container_name: reservations-svc
+    image: andesstay/reservations:latest
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: ${DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+      SERVICES_REPORT_URL: http://report-svc:8084
+      SERVICES_AUDIT_URL: http://audit-svc:8085
+    restart: unless-stopped
+    networks:
+      - andesstay-apps
+
+  # ─── Microservicio de Catálogo — Puerto 8082 ──────────────────────────────
+  catalog-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-catalog
+      dockerfile: Dockerfile
+    container_name: catalog-svc
+    image: andesstay/catalog:latest
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: ${DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+    restart: unless-stopped
+    networks:
+      - andesstay-apps
+
+  # ─── Microservicio de Notificaciones — Puerto 8083 ────────────────────────
+  notify-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-notify
+      dockerfile: Dockerfile
+    container_name: notify-svc
+    image: andesstay/notify:latest
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST:-localhost}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-andesstay}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-AndesStay2024!}
+      SPRING_RABBITMQ_VIRTUAL_HOST: ${RABBITMQ_VHOST:-andesstay}
+    restart: unless-stopped
+    networks:
+      - andesstay-apps
+
+  # ─── Microservicio de Reportería (KPIs) — Puerto 8084 ────────────────────
+  report-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-report
+      dockerfile: Dockerfile
+    container_name: report-svc
+    image: andesstay/report:latest
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: ${DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    restart: unless-stopped
+    networks:
+      - andesstay-apps
+
+  # ─── Microservicio de Auditoría (Timeline) — Puerto 8085 ─────────────────
+  audit-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-audit
+      dockerfile: Dockerfile
+    container_name: audit-svc
+    image: andesstay/audit:latest
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: ${DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    restart: unless-stopped
+    networks:
+      - andesstay-apps
+
+networks:
+  andesstay-apps:
+    driver: bridge
+    name: andesstay-apps

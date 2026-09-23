@@ -42,8 +42,25 @@ public class ReportController {
     public ResponseEntity<String> simulateEvent(
             @RequestParam Long reservationId,
             @RequestParam Long unitId,
-            @RequestParam String status) {
-        reportService.recordReservationEvent(reservationId, unitId, status);
+            @RequestParam String status,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) String createdAt) {
+        java.time.LocalDateTime createdDate = null;
+        if (createdAt != null && !createdAt.isBlank()) {
+            try {
+                createdDate = java.time.LocalDateTime.parse(createdAt);
+            } catch (Exception ignored) {}
+        }
+        reportService.recordReservationEvent(reservationId, unitId, status, eventType, java.time.LocalDateTime.now(), createdDate);
         return ResponseEntity.ok("Métrica registrada con éxito");
+    }
+
+    /**
+     * Endpoint para forzar sincronización y reconciliación de reportería
+     */
+    @PostMapping("/sync")
+    public ResponseEntity<String> triggerSync() {
+        reportService.reconcileExistingKpis();
+        return ResponseEntity.ok("Reconciliación y sincronización de reportería completada con éxito");
     }
 }
