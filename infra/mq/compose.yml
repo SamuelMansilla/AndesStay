@@ -1,0 +1,59 @@
+version: "3.9"
+
+# Infraestructura RabbitMQ - AndesStay Caso 5
+# ms-andesstay-notify utiliza RabbitMQ para envío de notificaciones por email/webhook
+# Clúster de 2 nodos con HA y Management UI
+
+services:
+  # ─── Nodo principal RabbitMQ ──────────────────────────────────────────────────
+  rabbitmq-1:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq-1
+    hostname: rabbitmq-1
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI — http://<ip>:15672 (user: andesstay / AndesStay2024!)
+    environment:
+      RABBITMQ_DEFAULT_USER: andesstay
+      RABBITMQ_DEFAULT_PASS: AndesStay2024!
+      RABBITMQ_DEFAULT_VHOST: andesstay
+      RABBITMQ_ERLANG_COOKIE: ANDESSTAY_CLUSTER_COOKIE
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-1"
+    volumes:
+      - rabbitmq1-data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    restart: unless-stopped
+    networks:
+      - andesstay-mq
+
+  # ─── Nodo secundario RabbitMQ ──────────────────────────────────────────────────
+  rabbitmq-2:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq-2
+    hostname: rabbitmq-2
+    depends_on:
+      - rabbitmq-1
+    ports:
+      - "5673:5672"    # AMQP (secundario)
+      - "15673:15672"  # Management UI (secundario)
+    environment:
+      RABBITMQ_DEFAULT_USER: andesstay
+      RABBITMQ_DEFAULT_PASS: AndesStay2024!
+      RABBITMQ_DEFAULT_VHOST: andesstay
+      RABBITMQ_ERLANG_COOKIE: ANDESSTAY_CLUSTER_COOKIE
+      RABBITMQ_NODENAME: "rabbit@rabbitmq-2"
+    volumes:
+      - rabbitmq2-data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    restart: unless-stopped
+    networks:
+      - andesstay-mq
+
+volumes:
+  rabbitmq1-data:
+  rabbitmq2-data:
+
+networks:
+  andesstay-mq:
+    driver: bridge
+    name: andesstay-mq

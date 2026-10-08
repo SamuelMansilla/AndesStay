@@ -8,6 +8,9 @@ public class KpiResponseDTO {
     private long totalEvents;
     private List<Map<String, Object>> statusBreakdown;
     private double activeOccupancyRate;
+    private long reservationsToday;
+    private double averageCycleHours;
+    private long totalReservations;
 
     public KpiResponseDTO() {
     }
@@ -49,5 +52,29 @@ public class KpiResponseDTO {
 
     public void setActiveOccupancyRate(double activeOccupancyRate) {
         this.activeOccupancyRate = activeOccupancyRate;
+    }
+
+    public long getReservationsToday() {
+        return reservationsToday;
+    }
+
+    public void setReservationsToday(long reservationsToday) {
+        this.reservationsToday = reservationsToday;
+    }
+
+    public double getAverageCycleHours() {
+        return averageCycleHours;
+    }
+
+    public void setAverageCycleHours(double averageCycleHours) {
+        this.averageCycleHours = averageCycleHours;
+    }
+
+    public long getTotalReservations() {
+        return totalReservations;
+    }
+
+    public void setTotalReservations(long totalReservations) {
+        this.totalReservations = totalReservations;
     }
 }

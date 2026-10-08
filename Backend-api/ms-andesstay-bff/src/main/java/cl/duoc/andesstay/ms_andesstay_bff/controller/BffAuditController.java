@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -22,10 +23,22 @@ public class BffAuditController {
         this.webClient = webClientBuilder.baseUrl(auditUrl).build();
     }
 
+    // GET /api/audit — propaga filtros opcionales: actor, eventType, reservationId
     @GetMapping
-    public Mono<ResponseEntity<String>> getTimeline(@AuthenticationPrincipal Jwt jwt) {
+    public Mono<ResponseEntity<String>> getTimeline(
+            @RequestParam(required = false) String actor,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) Long reservationId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        String uri = UriComponentsBuilder.fromPath("/api/audit")
+                .queryParamIfPresent("actor", java.util.Optional.ofNullable(actor))
+                .queryParamIfPresent("eventType", java.util.Optional.ofNullable(eventType))
+                .queryParamIfPresent("reservationId", java.util.Optional.ofNullable(reservationId))
+                .build().toUriString();
+
         WebClient.RequestHeadersSpec<?> spec = this.webClient.get()
-                .uri("/api/audit")
+                .uri(uri)
                 .accept(MediaType.APPLICATION_JSON);
 
         if (jwt != null) {
@@ -35,6 +48,7 @@ public class BffAuditController {
         return spec.retrieve().toEntity(String.class);
     }
 
+    // GET /api/audit/actor/{actor}
     @GetMapping("/actor/{actor}")
     public Mono<ResponseEntity<String>> getTimelineByActor(
             @PathVariable String actor,
@@ -42,6 +56,23 @@ public class BffAuditController {
 
         WebClient.RequestHeadersSpec<?> spec = this.webClient.get()
                 .uri("/api/audit/actor/{actor}", actor)
+                .accept(MediaType.APPLICATION_JSON);
+
+        if (jwt != null) {
+            spec = spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwt.getTokenValue());
+        }
+
+        return spec.retrieve().toEntity(String.class);
+    }
+
+    // GET /api/audit/reservation/{reservationId}
+    @GetMapping("/reservation/{reservationId}")
+    public Mono<ResponseEntity<String>> getTimelineByReservation(
+            @PathVariable Long reservationId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        WebClient.RequestHeadersSpec<?> spec = this.webClient.get()
+                .uri("/api/audit/reservation/{reservationId}", reservationId)
                 .accept(MediaType.APPLICATION_JSON);
 
         if (jwt != null) {

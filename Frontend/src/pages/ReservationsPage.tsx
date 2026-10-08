@@ -7,7 +7,8 @@ import { catalogService } from "../api/catalogService";
 const VALID_STATUS_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
   CREADA: ["CONFIRMADA", "CANCELADA"],
   CONFIRMADA: ["CHECKIN_PENDIENTE", "CANCELADA"],
-  CHECKIN_PENDIENTE: ["EN_ESTADÍA", "CANCELADA"],
+  CHECKIN_PENDIENTE: ["EN_ESTADIA", "CANCELADA"],
+  EN_ESTADIA: ["CHECKOUT"],
   EN_ESTADÍA: ["CHECKOUT"],
   CHECKOUT: [],
   CANCELADA: [],
@@ -101,8 +102,8 @@ export function ReservationsPage() {
     currentStatus: ReservationStatus,
     newStatus: ReservationStatus
   ) => {
-    // Regla clave del caso: No se puede hacer check-in (EN_ESTADÍA) sin haber estado CONFIRMADA o CHECKIN_PENDIENTE
-    if (newStatus === "EN_ESTADÍA" && currentStatus === "CREADA") {
+    // Regla clave del caso: No se puede hacer check-in (EN_ESTADIA) sin haber estado CONFIRMADA o CHECKIN_PENDIENTE
+    if ((newStatus === "EN_ESTADIA" || newStatus === "EN_ESTADÍA") && currentStatus === "CREADA") {
       alert("Violación de regla: No se puede hacer check-in sin CONFIRMAR la reserva previamente.");
       return;
     }
@@ -149,7 +150,12 @@ export function ReservationsPage() {
   };
 
   const filteredReservations = reservations.filter((r) => {
-    if (statusFilter !== "TODOS" && r.status !== statusFilter) return false;
+    if (statusFilter !== "TODOS") {
+      if (statusFilter === "EN_ESTADIA" || statusFilter === "EN_ESTADÍA") {
+        return r.status === "EN_ESTADIA" || r.status === "EN_ESTADÍA";
+      }
+      return r.status === statusFilter;
+    }
     return true;
   });
 
@@ -449,6 +455,7 @@ function statusBadgeStyle(status: ReservationStatus): React.CSSProperties {
     CREADA: { bg: "#fef3c7", color: "#92400e" },
     CONFIRMADA: { bg: "#dbeafe", color: "#1e40af" },
     CHECKIN_PENDIENTE: { bg: "#e0e7ff", color: "#3730a3" },
+    EN_ESTADIA: { bg: "#dcfce7", color: "#166534" },
     EN_ESTADÍA: { bg: "#dcfce7", color: "#166534" },
     CHECKOUT: { bg: "#f3f4f6", color: "#374151" },
     CANCELADA: { bg: "#fee2e2", color: "#991b1b" },
