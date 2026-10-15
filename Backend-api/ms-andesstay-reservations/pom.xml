@@ -49,6 +49,12 @@
 			<artifactId>spring-kafka</artifactId>
 		</dependency>
 
+		<!-- Spring AMQP (RabbitMQ) para publicar eventos de negocio (tarea 07, EP3) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-amqp</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
