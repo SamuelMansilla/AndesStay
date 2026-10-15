@@ -61,10 +61,18 @@ public abstract class AbstractDlqListener<T> {
      * <p>Debe ser idempotente: si el consumidor cae después de procesar y antes
      * del ACK, el mensaje se reentrega.</p>
      *
-     * @param channelName canal lógico del dominio que atiende el mensaje (EMAIL, SMS, PUSH...)
-     * @param event       evento deserializado
+     * @param event evento deserializado
      */
-    protected abstract void process(String channelName, T event);
+    protected abstract void process(T event);
+
+    /**
+     * Representación del evento para los logs. Las subclases pueden acortarla
+     * cuando el evento no tiene una forma legible (por ejemplo un
+     * {@code Message} crudo).
+     */
+    protected String describe(T event) {
+        return String.valueOf(event);
+    }
 
     /**
      * Aplica el contrato de confirmación sobre el mensaje recibido.
@@ -81,16 +89,16 @@ public abstract class AbstractDlqListener<T> {
             retryTemplate.execute(context -> {
                 if (context.getRetryCount() > 0) {
                     log.warn("[REINTENTO] canal={} deliveryTag={} intento={} evento={}",
-                            channelName, deliveryTag, context.getRetryCount() + 1, event);
+                            channelName, deliveryTag, context.getRetryCount() + 1, describe(event));
                 }
-                process(channelName, event);
+                process(event);
                 return null;
             });
 
             // ACK explícito: el evento quedó procesado (comportamiento normal).
             channel.basicAck(deliveryTag, false);
             log.info("[ACK] canal={} deliveryTag={} reentregado={} evento={}",
-                    channelName, deliveryTag, redelivered, event);
+                    channelName, deliveryTag, redelivered, describe(event));
 
         } catch (NonRecoverableException e) {
             discard(channelName, event, channel, deliveryTag, e, "error no recuperable (no se reintenta)");
@@ -107,7 +115,7 @@ public abstract class AbstractDlqListener<T> {
     private void discard(String channelName, T event, Channel channel, long deliveryTag,
                          Exception cause, String motivo) throws IOException {
         log.error("[DESCARTE->DLQ] canal={} deliveryTag={} motivo={} excepcion={} mensaje={} evento={}",
-                channelName, deliveryTag, motivo, cause.getClass().getName(), cause.getMessage(), event, cause);
+                channelName, deliveryTag, motivo, cause.getClass().getName(), cause.getMessage(), describe(event), cause);
         channel.basicNack(deliveryTag, false, false);
     }
 }

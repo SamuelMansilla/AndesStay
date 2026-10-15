@@ -54,7 +54,7 @@ Ejemplo: `feat(notify): centralizar topología RabbitMQ en MessagingProperties`
 | 03 | [notify: beans por caso de uso](fase-03-notify-beans-casos-de-uso.md) | 2 (13%) | 02 | 0.5 d | [x] |
 | 04 | [notify: publishers y separación](fase-04-notify-publishers-separacion.md) | 3 (10%) | 03 | 0.5 d | [x] |
 | 05 | [notify: ACK, reintentos y DLQ](fase-05-notify-ack-reintentos-dlq.md) | 5 (20%) | 03 | 1 d | [x] |
-| 06 | [notify: consumidores por dominio](fase-06-notify-consumidores-por-dominio.md) | 4 (15%) | 04, 05 | 1 d | [ ] |
+| 06 | [notify: consumidores por dominio](fase-06-notify-consumidores-por-dominio.md) | 4 (15%) | 04, 05 | 1 d | [x] |
 | 07 | [reservations: publicar tickets y documentos](fase-07-reservations-productores.md) | 1, 3 | 03 | 1 d | [ ] |
 | 08 | [mqadmin: esqueleto del microservicio](fase-08-mqadmin-esqueleto.md) | — | 01 | 0.5 d | [ ] |
 | 09 | [mqadmin: RabbitAdminService](fase-09-mqadmin-rabbitadmin-service.md) | 7 (10%) | 08 | 1 d | [ ] |

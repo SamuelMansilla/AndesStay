@@ -148,6 +148,8 @@ Reintentos **dentro del listener** y DLQ por *dead-lettering* de la propia cola.
 
 `NotificationListener.processDeadLetter` (que consumía `${andesstay.messaging.dlq}`) fue **eliminado**. Si la DLQ tuviera consumidor, los mensajes descartados se consumirían y desaparecerían, con lo que dejaría de ser una cola de supervisión y se perdería la evidencia del indicador 5 (además, al no tener DLX propia, un fallo de ese consumidor no tendría salida). La DLQ queda como destino **terminal**, inspeccionable desde la UI o desde `mqadmin` (tareas 09–12); el descarte ya queda registrado en `ERROR` por el listener que lo rechaza, que es donde está el contexto.
 
+> **Revisión posterior (tarea 06):** el enunciado de la tarea 06 pide explícitamente un consumidor de la DLQ, por lo que se reintroduce como `messaging/dlq/DeadLetterListener` (registra en `WARN` cola de origen, routing key, motivo y payload a partir de `x-death`, y confirma el mensaje). Contrapartida asumida: la DLQ ya no acumula mensajes; la evidencia queda en el log del descarte y en el `WARN [DLQ]`.
+
 ### Configuración: por qué Java y no `application.yml`
 
 El enunciado sugería `spring.rabbitmq.listener.simple.*`. Al declarar un `rabbitListenerContainerFactory` propio se sustituye el de Spring Boot y esas claves pasarían a ser **ignoradas** (configuración repartida y engañosa). Por eso el ACK manual, el requeue, `missingQueuesFatal`, el prefetch y los consumidores viven en `RabbitListenerConfig`, y el `application.yml` sólo deja la nota que apunta allí.
