@@ -46,11 +46,11 @@ Declarar, de forma explícita y comentada, los beans de topología para **cada**
 | Crear (opcional) | `.../notify/config/messaging/NotificationsTopologyConfig.java`, `HousekeepingTopologyConfig.java`, `DocumentsTopologyConfig.java` |
 
 ## Criterios de aceptación (Definition of Done)
-- [ ] Existe al menos un `Queue`, `Exchange` y `Binding` por cada caso de uso definido.
-- [ ] Cada ruta de mensajería está **claramente identificada y comentada** en código.
-- [ ] Todas las colas tienen dead-lettering configurado hacia DLX/DLQ.
-- [ ] No hay literales de nombres (todo desde `MessagingProperties`).
-- [ ] `notify` arranca y las 5 colas + DLQ aparecen en la UI de RabbitMQ.
+- [x] Existe al menos un `Queue`, `Exchange` y `Binding` por cada caso de uso definido.
+- [x] Cada ruta de mensajería está **claramente identificada y comentada** en código.
+- [x] Todas las colas tienen dead-lettering configurado hacia DLX/DLQ.
+- [x] No hay literales de nombres (todo desde `MessagingProperties`).
+- [x] `notify` arranca y las 5 colas + DLQ aparecen en la UI de RabbitMQ.
 
 ## Cómo verificar
 ```bash
@@ -68,3 +68,78 @@ git revert <hash>
 
 ## Notas
 - Si se opta por separar en varias clases `@Configuration`, mantener el prefijo de nombre por dominio para facilitar la lectura de la pauta.
+
+---
+
+## Resultado — 2026-10-15
+
+### Opción aplicada: **dividida por dominio** (aprobada por el equipo)
+
+| Archivo | Contenido |
+|---------|-----------|
+| `config/messaging/MessagingInfraConfig.java` | `MessageConverter` JSON, `AmqpTemplate` y `RabbitAdmin` |
+| `config/messaging/DeadLetterConfig.java` | `deadLetterExchange()`, `deadLetterQueue()`, `deadLetterBinding()` |
+| `config/messaging/NotificationsTopologyConfig.java` | exchange principal + 3 colas y 3 bindings (email/sms/push) |
+| `config/messaging/HousekeepingTopologyConfig.java` | cola y binding de tickets de aseo |
+| `config/messaging/DocumentsTopologyConfig.java` | cola y binding de generación de documentos |
+| `config/messaging/TopologySupport.java` | helper compartido que aplica el dead-lettering común |
+| **Eliminado** `config/RabbitMQConfig.java` | reemplazado por los anteriores |
+
+### Beans por caso de uso
+
+| Caso de uso | `Queue` | `Exchange` | `Binding` (routing key) | Productor | Consumidor |
+|-------------|---------|------------|-------------------------|-----------|------------|
+| Notificación email | `q.notify.email` | `ex.andesstay.notifications` | `notify.email` | notify / reservations | notify |
+| Notificación SMS | `q.notify.sms` | `ex.andesstay.notifications` | `notify.sms` | notify | notify |
+| Notificación push | `q.notify.push` | `ex.andesstay.notifications` | `notify.push` | notify | notify |
+| Ticket de housekeeping | `q.housekeeping.tickets` | `ex.andesstay.notifications` | `housekeeping.ticket` | reservations (tarea 07) | notify (tarea 06) |
+| Documentos (voucher/factura) | `q.docs.generate` | `ex.andesstay.notifications` | `docs.generate` | reservations (tarea 07) | notify (tarea 06) |
+| Descartes (transversal) | `q.andesstay.dlq` | `ex.andesstay.dlx` | `dlq.routing.key` | (automático) | notify |
+
+Cada clase declara sus rutas en el Javadoc (`dominio → cola → routing key`), como pide el DoD.
+
+`TopologySupport.durableWithDeadLetter(...)` centraliza los argumentos `x-dead-letter-exchange` / `x-dead-letter-routing-key`, así ninguna de las 5 colas se declara sin dead-lettering y no se repite lógica.
+
+### Verificación
+
+**1. Compilación:** `.\mvnw.cmd -B package -DskipTests` → `BUILD SUCCESS`, 0 `[ERROR]`, 0 `[WARNING]`.
+
+**2. Sin literales en código:** el grep sobre `src/main/java` con `'"q\.|"ex\.|notify\.(email|sms|push)|housekeeping\.ticket|docs\.generate|dlq\.routing\.key|andesstay\.rabbitmq'` sólo devuelve las **rutas documentadas en Javadoc** (exigidas por el DoD). Filtrando comentarios (`-notmatch '^(\*|/\*|//)'`) el resultado es **0 coincidencias**: todo nombre proviene de `MessagingProperties`.
+
+**3. Arranque:** `Started MsAndesstayNotifyApplication in 7.997 seconds` (`8083`), sin errores.
+
+**4. Topología declarada en el broker** (Management API, vhost `andesstay`):
+
+```
+COLAS (6)
+  q.andesstay.dlq          durable  (sin dead-lettering: es la DLQ)
+  q.notify.email           durable  x-dead-letter-exchange=ex.andesstay.dlx, x-dead-letter-routing-key=dlq.routing.key
+  q.notify.sms             durable  idem
+  q.notify.push            durable  idem
+  q.housekeeping.tickets   durable  idem
+  q.docs.generate          durable  idem
+
+EXCHANGES (2)
+  ex.andesstay.notifications  direct  durable
+  ex.andesstay.dlx            direct  durable
+
+BINDINGS (6)
+  ex.andesstay.dlx --[dlq.routing.key]--> q.andesstay.dlq
+  ex.andesstay.notifications --[notify.email]--> q.notify.email
+  ex.andesstay.notifications --[notify.sms]--> q.notify.sms
+  ex.andesstay.notifications --[notify.push]--> q.notify.push
+  ex.andesstay.notifications --[housekeeping.ticket]--> q.housekeeping.tickets
+  ex.andesstay.notifications --[docs.generate]--> q.docs.generate
+```
+
+**5. Sin regresión funcional:** re-ejecutada la prueba de la tarea 02 → POST por EMAIL/SMS/PUSH y los 3 listeners consumen correctamente.
+
+### Nota de diseño
+El `RabbitAdmin` se declara explícitamente en `MessagingInfraConfig` (paso 4, recomendado) con el nombre de bean `amqpAdmin`, el mismo que usaría Spring Boot: sustituye al auto-configurado sin cambiar la semántica y deja explícito quién declara la topología.
+
+### Rollback
+```bash
+git revert <hash>
+# las colas nuevas quedan huérfanas en el broker local: borrarlas o recrear el volumen
+```
+

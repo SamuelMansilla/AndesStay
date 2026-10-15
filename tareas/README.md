@@ -51,7 +51,7 @@ Ejemplo: `feat(notify): centralizar topología RabbitMQ en MessagingProperties`
 | 00 | [Preparación del entorno](fase-00-preparacion.md) | — | — | 0.5 d | [x] |
 | 01 | [Unificar versiones Spring Boot](fase-01-unificar-spring-boot.md) | — | 00 | 0.5 d | [x] |
 | 02 | [notify: centralizar topología](fase-02-notify-centralizar-topologia.md) | 1 (12%) | 01 | 0.5 d | [x] |
-| 03 | [notify: beans por caso de uso](fase-03-notify-beans-casos-de-uso.md) | 2 (13%) | 02 | 0.5 d | [ ] |
+| 03 | [notify: beans por caso de uso](fase-03-notify-beans-casos-de-uso.md) | 2 (13%) | 02 | 0.5 d | [x] |
 | 04 | [notify: publishers y separación](fase-04-notify-publishers-separacion.md) | 3 (10%) | 03 | 0.5 d | [ ] |
 | 05 | [notify: ACK, reintentos y DLQ](fase-05-notify-ack-reintentos-dlq.md) | 5 (20%) | 03 | 1 d | [ ] |
 | 06 | [notify: consumidores por dominio](fase-06-notify-consumidores-por-dominio.md) | 4 (15%) | 04, 05 | 1 d | [ ] |
