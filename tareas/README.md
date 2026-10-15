@@ -8,6 +8,7 @@ Cada archivo de esta carpeta está pensado para **terminarse y commitearse de fo
 - el diff de cada commit sea **revisable** y contenga sentido completo.
 
 > Contexto funcional y de arquitectura: ver [`../context.md`](../context.md).
+> Estado de la última sesión, decisiones tomadas y próximo paso: ver [`_estado-ep3.md`](_estado-ep3.md).
 
 ---
 
