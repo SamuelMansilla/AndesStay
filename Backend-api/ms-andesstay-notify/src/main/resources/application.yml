@@ -17,14 +17,15 @@ spring:
     username: ${RABBITMQ_USER:andesstay}
     password: "${RABBITMQ_PASS:AndesStay2024!}"
     virtual-host: ${RABBITMQ_VHOST:andesstay}
-    listener:
-      simple:
-        retry:
-          # Reintentos de un mismo mensaje antes de descartarlo.
-          # (El ruteo explícito a la DLQ se implementa en la tarea 05.)
-          enabled: true
-          initial-interval: 2000ms
-          max-attempts: 3
+
+    # ── Consumidores de los @RabbitListener ────────────────────────────────────
+    # Se configuran en JAVA (config/RabbitListenerConfig): acknowledge-mode=MANUAL,
+    # default-requeue-rejected=false, missing-queues-fatal=false, prefetch=10,
+    # 2 consumidores y reintentos acotados (3 intentos / 2 s) sólo para errores
+    # recuperables. Se hace allí a propósito: al declarar un factory propio se
+    # sustituye el de Spring Boot, por lo que cualquier clave
+    # "spring.rabbitmq.listener.*" sería ignorada y dejaría la configuración
+    # repartida y engañosa (tarea 05).
 
 server:
   port: 8083
@@ -63,3 +64,11 @@ andesstay:
       notify-push: notify.push
       housekeeping-ticket: housekeeping.ticket
       docs-generate: docs.generate
+  notify:
+    # ── Gancho de demostración del ciclo reintento -> DLQ (tarea 05) ───────────
+    # Destinatarios para los que el envío falla de forma TRANSITORIA (recuperable).
+    # Vacío = desactivado; en operación normal no altera el comportamiento.
+    # Se activa sólo en la verificación:
+    #   --andesstay.notify.simulation.fail-recipients=retry@andesstay.cl
+    simulation:
+      fail-recipients: ${NOTIFY_FAIL_RECIPIENTS:}
