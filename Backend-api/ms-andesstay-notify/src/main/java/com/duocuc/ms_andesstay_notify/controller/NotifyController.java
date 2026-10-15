@@ -1,8 +1,8 @@
 package com.duocuc.ms_andesstay_notify.controller;
 
+import com.duocuc.ms_andesstay_notify.config.MessagingProperties;
 import com.duocuc.ms_andesstay_notify.model.NotificationEvent;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,12 +15,11 @@ import java.util.UUID;
 public class NotifyController {
 
     private final RabbitTemplate rabbitTemplate;
+    private final MessagingProperties messagingProperties;
 
-    @Value("${andesstay.rabbitmq.exchange}")
-    private String exchange;
-
-    public NotifyController(RabbitTemplate rabbitTemplate) {
+    public NotifyController(RabbitTemplate rabbitTemplate, MessagingProperties messagingProperties) {
         this.rabbitTemplate = rabbitTemplate;
+        this.messagingProperties = messagingProperties;
     }
 
     @PostMapping("/send")
@@ -28,13 +27,14 @@ public class NotifyController {
         event.setNotificationId(UUID.randomUUID().toString());
         event.setTimestamp(LocalDateTime.now());
 
+        MessagingProperties.RoutingKeys routingKeys = messagingProperties.getRoutingKeys();
         String routingKey = switch (event.getChannel() != null ? event.getChannel().toUpperCase() : "EMAIL") {
-            case "SMS" -> "notify.sms";
-            case "PUSH" -> "notify.push";
-            default -> "notify.email";
+            case "SMS" -> routingKeys.getNotifySms();
+            case "PUSH" -> routingKeys.getNotifyPush();
+            default -> routingKeys.getNotifyEmail();
         };
 
-        rabbitTemplate.convertAndSend(exchange, routingKey, event);
+        rabbitTemplate.convertAndSend(messagingProperties.getExchange(), routingKey, event);
         return ResponseEntity.ok("Notificación enviada a RabbitMQ con routingKey: " + routingKey);
     }
 }

@@ -11,25 +11,25 @@ public class NotificationListener {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationListener.class);
 
-    @RabbitListener(queues = "${andesstay.rabbitmq.queue.email}")
+    @RabbitListener(queues = "${andesstay.messaging.queues.notify-email}")
     public void processEmailNotification(NotificationEvent event) {
         log.info("[EMAIL] Enviado a: {} para la reserva #{}. Contenido: {}", 
                 event.getRecipient(), event.getReservationId(), event.getBody());
     }
 
-    @RabbitListener(queues = "${andesstay.rabbitmq.queue.sms}")
+    @RabbitListener(queues = "${andesstay.messaging.queues.notify-sms}")
     public void processSmsNotification(NotificationEvent event) {
         log.info("[SMS] Enviado a: {}. Mensaje: {}", 
                 event.getRecipient(), event.getBody());
     }
 
-    @RabbitListener(queues = "${andesstay.rabbitmq.queue.push}")
+    @RabbitListener(queues = "${andesstay.messaging.queues.notify-push}")
     public void processPushNotification(NotificationEvent event) {
         log.info("[PUSH] Enviada alerta a: {}. Notificación: {}", 
                 event.getRecipient(), event.getBody());
     }
 
-    @RabbitListener(queues = "${andesstay.rabbitmq.queue.dlq}")
+    @RabbitListener(queues = "${andesstay.messaging.dlq}")
     public void processDeadLetter(NotificationEvent event) {
         log.warn("[DLQ] Evento en cola de fallos (Dead Letter Queue): {}", event);
     }
