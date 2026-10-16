@@ -85,3 +85,34 @@ git revert <hash>
 ## Notas
 - Este commit cierra la EP3. Asegurar que `context.md` y `tareas/` reflejan el estado final.
 - Si el docente pide cambios, abrir una tarea nueva siguiendo `_plantilla-tarea.md`.
+
+---
+
+## Resultado — 2026-10-16
+
+### Documentación
+
+- **Creado `docs/MENSAJERIA_RABBITMQ.md`**: diagrama de topología (productores → exchanges → colas → consumidores → DLX/DLQ), convenciones de nombres, tablas de exchanges/colas/bindings, contrato ACK/NACK/reintentos/DLQ, productores y consumidores, API de administración con ejemplos `curl` y códigos de error, guía de prueba end-to-end (incluida la DLQ), variables de entorno y mapa de "dónde vive la topología" en el código.
+- **`README.md`**: enlace a `docs/MENSAJERIA_RABBITMQ.md` y a `context.md`; nuevo apartado de Inicio Rápido "Levantar RabbitMQ y los servicios de mensajería" (broker + `notify` 8083 + `mqadmin` 8086); el microservicio `mqadmin` ya estaba listado en la arquitectura.
+
+### Verificación de requisitos formales
+
+- **`.gitignore`** (raíz): cubre `target/`, `**/target/`, `node_modules/`, `dist/`, `.idea/`, `.vscode/`, logs. Confirmado que `target/` y `node_modules/` no se versionan.
+- **Compilación final (JDK 21):** 7/7 módulos `BUILD SUCCESS` (`clean package -DskipTests`) y `Frontend` `vite build` OK.
+- **Secretos (riesgo R2):** las credenciales de RabbitMQ y los identificadores de Azure siguen con *fallback* en `application.yml` versionados. Se dejó **constancia explícita** en `docs/MENSAJERIA_RABBITMQ.md` (sección de variables de entorno); la externalización/rotación queda pendiente de decisión del equipo.
+
+### Limitación: prueba de humo end-to-end
+
+No se pudo ejecutar la prueba de humo (levantar RabbitMQ + `notify` + `reservations` + `mqadmin` + `bff`) porque **este entorno no tiene Docker ni un broker RabbitMQ**. La secuencia exacta, con comandos, queda documentada en `docs/MENSAJERIA_RABBITMQ.md` → *Guía de prueba end-to-end*. Las partes verificables sin broker quedaron cubiertas por las pruebas automatizadas de la tarea 13 (contrato ACK/DLQ, `RabbitAdminService`, validación de la API).
+
+### Pendiente de entrega
+
+- `git push origin feature/ep3-rabbitmq` y **merge a `main`** (decisión del equipo).
+- `git status` limpio y enlaces de GitHub para AVA.
+
+### Rollback
+
+```bash
+git revert <hash>
+```
+Solo documentación; sin impacto funcional.

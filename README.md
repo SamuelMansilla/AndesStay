@@ -20,6 +20,8 @@ Plataforma unificada para la gestión de reservas web, administración de dispon
 ## 📚 Documentación Técnica
 
 - [Documentación de Integración Frontend - BFF - Microservicios](docs/INTEGRACION_FRONTEND_BACKEND.md): Detalle exhaustivo de contratos de API, resolución de errores de autenticación JWT / MSAL, y optimización de conexiones de base de datos.
+- [Mensajería con RabbitMQ (EP3)](docs/MENSAJERIA_RABBITMQ.md): Topología de exchanges, colas, bindings y DLX/DLQ, contrato de ACK/reintentos, API de administración (`ms-andesstay-mqadmin`) y guía de prueba end-to-end.
+- [Contexto de la EP3](context.md): Encargo, indicadores de la pauta y decisiones de diseño.
 - [Implementación MSAL y Axios](Frontend/docs/implementacion_msal_axios.txt): Detalles específicos de la integración con Microsoft Entra ID y flujo de redirección.
 
 ---
@@ -41,7 +43,20 @@ cd Backend-api/ms-andesstay-bff && .\mvnw.cmd spring-boot:run
 ```
 *(Corre en el puerto 8080).*
 
-### 3. Levantar el Frontend
+### 3. Levantar RabbitMQ y los servicios de mensajería
+```bash
+# Broker RabbitMQ + Management UI (5672 / 15672; usuario andesstay, vhost andesstay)
+docker compose -f infra/mq/compose.yml up -d
+
+# Notificaciones (puerto 8083) — consumidor RabbitMQ
+cd Backend-api/ms-andesstay-notify && .\mvnw.cmd spring-boot:run
+
+# Administrador de RabbitMQ (puerto 8086) — API REST protegida con JWT (rol Admin)
+cd Backend-api/ms-andesstay-mqadmin && .\mvnw.cmd spring-boot:run
+```
+*(Topología, API de administración y prueba de DLQ: [docs/MENSAJERIA_RABBITMQ.md](docs/MENSAJERIA_RABBITMQ.md).)*
+
+### 4. Levantar el Frontend
 ```bash
 cd Frontend
 npm install
