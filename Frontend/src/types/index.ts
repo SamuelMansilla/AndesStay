@@ -67,3 +67,49 @@ export interface TopUnitItem {
   bookings: number;
   revenue?: string | number;
 }
+
+// ── Administración de RabbitMQ (ms-andesstay-mqadmin) ────────────────────────
+
+export interface QueueInfo {
+  name: string;
+  durable: boolean;
+  autoDelete: boolean;
+  exclusive: boolean;
+  messageCount: number | null;
+  consumerCount: number | null;
+  arguments?: Record<string, unknown> | null;
+}
+
+export interface ExchangeInfo {
+  name: string;
+  type: string;
+  durable: boolean;
+  autoDelete: boolean;
+}
+
+export interface BindingInfo {
+  queue: string;
+  exchange: string;
+  routingKey: string;
+}
+
+export interface QueueRequest {
+  name: string;
+  durable?: boolean;
+  autoDelete?: boolean;
+  ttlMillis?: number | null;
+  deadLetter?: boolean;
+}
+
+export interface ExchangeRequest {
+  name: string;
+  type?: string;
+  durable?: boolean;
+  autoDelete?: boolean;
+}
+
+export interface BindingRequest {
+  queue: string;
+  exchange: string;
+  routingKey: string;
+}

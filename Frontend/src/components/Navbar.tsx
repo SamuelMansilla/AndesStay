@@ -136,6 +136,23 @@ export function Navbar() {
               Auditoría
             </NavLink>
           )}
+
+          {role === "Admin" && (
+            <NavLink
+              to="/messaging"
+              style={({ isActive }) => ({
+                color: isActive ? "#38bdf8" : "#cbd5e1",
+                textDecoration: "none",
+                fontWeight: isActive ? 700 : 500,
+                fontSize: "0.9rem",
+                padding: "0.35rem 0.6rem",
+                borderRadius: "4px",
+                background: isActive ? "rgba(56, 189, 248, 0.1)" : "transparent",
+              })}
+            >
+              Mensajería
+            </NavLink>
+          )}
         </nav>
       </div>
 

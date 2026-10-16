@@ -7,6 +7,7 @@ import { ReservationsPage } from "./pages/ReservationsPage";
 import { CatalogPage } from "./pages/CatalogPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { AuditPage } from "./pages/AuditPage";
+import { MessagesAdminPage } from "./pages/MessagesAdminPage";
 
 export default function App() {
   return (
@@ -60,6 +61,15 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["Admin", "Auditor"]}>
                   <AuditPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/messaging"
+              element={
+                <ProtectedRoute allowedRoles={["Admin"]}>
+                  <MessagesAdminPage />
                 </ProtectedRoute>
               }
             />

@@ -82,3 +82,40 @@ git revert <hash>
 ## Notas
 - Mantener el estilo de las páginas existentes (`CatalogPage`, `ReportsPage`).
 - El encargo autoriza React (no Angular) según confirmación del docente — ver `context.md` §10.
+
+---
+
+## Resultado — 2026-10-16
+
+### Archivos
+
+| Acción | Archivo |
+|--------|---------|
+| Crear | `Frontend/src/api/mqAdminService.ts` |
+| Crear | `Frontend/src/pages/MessagesAdminPage.tsx` |
+| Modificar | `Frontend/src/types/index.ts` (`QueueInfo`, `ExchangeInfo`, `BindingInfo`, `QueueRequest`, `ExchangeRequest`, `BindingRequest`) |
+| Modificar | `Frontend/src/App.tsx` (ruta `/messaging`, `allowedRoles={["Admin"]}`) |
+| Modificar | `Frontend/src/components/Navbar.tsx` (enlace "Mensajería" solo para Admin) |
+
+La página tiene tres secciones (colas, exchanges, bindings) con formularios de creación, acciones de **purgar/eliminar**, estados de carga, mensajes de éxito y **traducción de errores** (`400` con `fields` por campo, `401`, `403`, `502`). Usa el mismo `axiosClient` (inyecta el Bearer de MSAL) y consumen el BFF (`/api/mqadmin/**`). El borrado de binding usa `DELETE` con cuerpo, igual que el backend.
+
+### Verificación
+
+```text
+> tsc -b && vite build
+✓ 258 modules transformed.
+✓ built in 522ms
+EXIT=0
+```
+Compila sin errores de TypeScript (solo el aviso de tamaño de chunk, preexistente). Nota: en esta máquina `npm` está bloqueado como `.ps1` por ExecutionPolicy; se usó `npm.cmd run build`.
+
+### Limitación de entorno
+
+No se pudo validar la UI en vivo (requiere sesión Admin de MSAL y el broker + microservicios levantados). La verificación es de **compilación/typing**; el contrato con `/api/mqadmin/**` está cubierto por las tareas 10 y 11.
+
+### Rollback
+
+```bash
+git revert <hash>
+```
+Añadido de UI aislado; revertir no afecta al backend.
