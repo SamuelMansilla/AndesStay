@@ -1,6 +1,7 @@
 package com.duocuc.ms_andesstay_mqadmin.service;
 
 import com.duocuc.ms_andesstay_mqadmin.config.MessagingProperties;
+import com.duocuc.ms_andesstay_mqadmin.exception.ResourceNotFoundException;
 import com.duocuc.ms_andesstay_mqadmin.model.BindingInfo;
 import com.duocuc.ms_andesstay_mqadmin.model.ExchangeInfo;
 import com.duocuc.ms_andesstay_mqadmin.model.QueueInfo;
@@ -123,7 +124,7 @@ public class RabbitAdminService {
     /** Elimina una cola administrada del broker y del registro. */
     public void deleteQueue(String name) {
         if (!managedQueues.containsKey(name)) {
-            throw new IllegalArgumentException("La cola no está administrada: " + name);
+            throw new ResourceNotFoundException("La cola no está administrada: " + name);
         }
         boolean deleted = amqpAdmin.deleteQueue(name);
         managedQueues.remove(name);
@@ -138,7 +139,7 @@ public class RabbitAdminService {
     /** Purga todos los mensajes de una cola administrada y devuelve cuántos había. */
     public int purgeQueue(String name) {
         if (!managedQueues.containsKey(name)) {
-            throw new IllegalArgumentException("La cola no está administrada: " + name);
+            throw new ResourceNotFoundException("La cola no está administrada: " + name);
         }
         int purged = amqpAdmin.purgeQueue(name);
         LOG.info("[MQADMIN] Cola purgada: {} ({} mensajes)", name, purged);
@@ -173,7 +174,7 @@ public class RabbitAdminService {
     /** Elimina un exchange administrado del broker y del registro. */
     public void deleteExchange(String name) {
         if (!managedExchanges.containsKey(name)) {
-            throw new IllegalArgumentException("El exchange no está administrado: " + name);
+            throw new ResourceNotFoundException("El exchange no está administrado: " + name);
         }
         boolean deleted = amqpAdmin.deleteExchange(name);
         managedExchanges.remove(name);
@@ -218,7 +219,7 @@ public class RabbitAdminService {
         Binding binding = buildBinding(request);
         String key = bindingKey(binding);
         if (!managedBindings.containsKey(key)) {
-            throw new IllegalArgumentException("El binding no existe: " + key);
+            throw new ResourceNotFoundException("El binding no existe: " + key);
         }
         amqpAdmin.removeBinding(binding);
         managedBindings.remove(key);
@@ -292,13 +293,13 @@ public class RabbitAdminService {
 
     private void requireManagedQueue(String name) {
         if (!managedQueues.containsKey(name)) {
-            throw new IllegalArgumentException("La cola no está administrada: " + name);
+            throw new ResourceNotFoundException("La cola no está administrada: " + name);
         }
     }
 
     private void requireManagedExchange(String name) {
         if (!managedExchanges.containsKey(name)) {
-            throw new IllegalArgumentException("El exchange no está administrado: " + name);
+            throw new ResourceNotFoundException("El exchange no está administrado: " + name);
         }
     }
 
