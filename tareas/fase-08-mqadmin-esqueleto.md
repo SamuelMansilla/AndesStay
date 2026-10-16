@@ -154,7 +154,7 @@ El servicio arranca correctamente; el `DOWN` es **solo** porque no hay broker en
   ```text
   Fatal error compiling: java.lang.ExceptionInInitializerError: com.sun.tools.javac.code.TypeTag :: UNKNOWN
   ```
-  Afecta **solo** a los dos módulos que usan Lombok. Es independiente de esta tarea: `bff`/`reservations` están idénticos a `HEAD` (esta tarea solo añade un módulo standalone y 1 línea en `README.md`; no hay pom agregador en `Backend-api/`). Los otros 5 módulos (`audit`, `catalog`, `notify`, `report`, `mqadmin`) compilan con **BUILD SUCCESS**.
+  Afecta **solo** a los dos módulos que usan Lombok. Es independiente de esta tarea: `bff`/`reservations` están idénticos a `HEAD` (esta tarea solo añade un módulo standalone y 1 línea en `README.md`; no hay pom agregador en `Backend-api/`). Los otros 5 módulos (`audit`, `catalog`, `notify`, `report`, `mqadmin`) compilan con **BUILD SUCCESS**. → **Resuelto en la tarea 11:** con un JDK 21 portátil los 7 módulos compilan; era ambiental (JDK 26), no del código.
 
 ### Rollback
 

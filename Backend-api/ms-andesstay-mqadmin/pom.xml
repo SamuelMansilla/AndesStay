@@ -44,11 +44,15 @@
         </dependency>
 
         <!--
-          Nota (decisión EP3): spring-boot-starter-oauth2-resource-server se añade
-          en la tarea 11. Trae spring-boot-starter-security, que por defecto protege
-          todos los endpoints y dejaría /actuator/health en 401, rompiendo el DoD de
-          esta tarea.
+          Seguridad OAuth2 Resource Server (tarea 11): valida el JWT del IDaaS
+          (Azure Entra ID). Aporta spring-boot-starter-security, de modo que el
+          SecurityConfig debe permitir explícitamente /actuator/** para que el
+          health no quede en 401.
         -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
 
         <!-- Test -->
         <dependency>

@@ -73,3 +73,53 @@ git revert <hash>
 ## Notas
 - La pauta exige "filtros que validen el JWT" en el backend: esto cubre ese requisito para el nuevo servicio.
 - Reutilizar los validadores del BFF evita duplicar la lógica de issuer v1/v2 y `api://`.
+
+---
+
+## Resultado — 2026-10-16
+
+### Cambios
+
+**mqadmin (servicio nuevo como resource server):**
+- `pom.xml`: `spring-boot-starter-oauth2-resource-server`.
+- `application.yml`: bloque `spring.security.oauth2.resourceserver.jwt` (`issuer-uri` + `audiences`, mismos valores que el BFF, parametrizados por `AZURE_ISSUER_URI` / `AZURE_AUDIENCE`).
+- `config/SecurityConfig.java`: filter chain **stateless**; `/actuator/**` permitido; `anyRequest().authenticated()`; `oauth2ResourceServer(jwt)` con `JwtDecoder` propio y `JwtRoleConverter`.
+- `config/{AudienceValidator,TenantIssuerValidator,JwtRoleConverter}.java`: copiados del BFF (misma lógica de issuer v1/v2 y audience con/sin `api://`).
+- `MqAdminController`: `@PreAuthorize("hasRole('Admin')")` a nivel de clase.
+
+**BFF (proxy):**
+- `controller/BffMqAdminController.java`: `/api/mqadmin/**` (mismos verbos/rutas que el microservicio), propaga `Authorization: Bearer <jwt>`.
+- `application.properties`: `services.mqadmin.url=${SERVICES_MQADMIN_URL:http://localhost:8086}`.
+
+**Infra:**
+- `infra/apps/compose.yml`: nuevo servicio `mqadmin-svc` (8086, env RabbitMQ + Azure) y `SERVICES_MQADMIN_URL` en `bff-svc` (+ `depends_on`).
+
+### Verificación
+
+- **Compilación del monorepo — 7/7 BUILD SUCCESS** (ver hallazgo): `audit`, `bff`, `catalog`, `mqadmin`, `notify`, `report`, `reservations`.
+- **mqadmin en 8086** (sin token):
+  | Petición | Resultado |
+  |----------|-----------|
+  | `GET /actuator/health` | **503** `{"status":"DOWN"}` (permitido; el `DOWN` es por broker ausente, **no** un 401) |
+  | `GET /api/mqadmin/queues` | **401** `{"status":401,...}` |
+  | `POST /api/mqadmin/queues` | **401** |
+  ```text
+  INFO  Started MsAndesstayMqadminApplication in 3.307 seconds
+  GET  /actuator/health        -> 503 {"status":"DOWN"}
+  GET  /api/mqadmin/queues     -> 401 {"status":401,"error":"Unauthorized",...}
+  ```
+
+### Hallazgo: JDK 26 → instalación de JDK 21 portátil
+
+El `java` por defecto de la máquina es **JDK 26**, incompatible con Lombok (usa `sun.misc.Unsafe` de forma que rompe en `bff`/`reservations`). Se descargó un **Temurin JDK 21.0.12 portátil** (en `%TEMP%\jdk21`, fuera del repo) y, fijando `JAVA_HOME` a él, **los 7 módulos compilan**. Esto corrige la nota de la tarea 08: el fallo de `bff`/`reservations` era puramente ambiental (JDK 26), no del código. Para compilar en esta máquina, usar ese `JAVA_HOME`.
+
+### Limitación restante
+
+No se pudo verificar el **403 con token sin rol Admin** ni el **200/201 con token de Admin** (requiere un JWT real del IDaaS y el broker levantado). El `401` sin token —que es el caso crítico del DoD— sí quedó verificado.
+
+### Rollback
+
+```bash
+git revert <hash>
+```
+Deja `mqadmin` sin seguridad (abierto por red interna) y quita el proxy del BFF. No recomendado para la entrega; solo contingencia.

@@ -21,6 +21,16 @@ spring:
     password: "${RABBITMQ_PASS:AndesStay2024!}"
     virtual-host: ${RABBITMQ_VHOST:andesstay}
 
+  # ── Seguridad OAuth2 (IDaaS Azure Entra ID) ────────────────────────────────
+  # Mismos valores que el BFF. El microservicio valida el JWT que propaga el BFF
+  # (indicador "filtros que validen el JWT"); solo el rol Admin puede administrar.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AZURE_ISSUER_URI:https://login.microsoftonline.com/00d7b2a1-2793-4a06-883e-c37b29134049/v2.0}
+          audiences: ${AZURE_AUDIENCE:api://130c7bbc-6cfa-473f-b953-13c1ef4c2156}
+
 server:
   port: 8086
 

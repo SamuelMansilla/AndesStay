@@ -60,7 +60,7 @@ Ejemplo: `feat(notify): centralizar topología RabbitMQ en MessagingProperties`
 | 08 | [mqadmin: esqueleto del microservicio](fase-08-mqadmin-esqueleto.md) | — | 01 | 0.5 d | [x] |
 | 09 | [mqadmin: RabbitAdminService](fase-09-mqadmin-rabbitadmin-service.md) | 7 (10%) | 08 | 1 d | [x] |
 | 10 | [mqadmin: REST + validación](fase-10-mqadmin-rest-validacion.md) | 6 (13%), 8 (7%) | 09 | 1 d | [x] |
-| 11 | [mqadmin: seguridad, BFF e infra](fase-11-mqadmin-seguridad-bff-infra.md) | JWT / 6 | 10 | 0.5 d | [ ] |
+| 11 | [mqadmin: seguridad, BFF e infra](fase-11-mqadmin-seguridad-bff-infra.md) | JWT / 6 | 10 | 0.5 d | [x] |
 | 12 | [frontend: panel de mensajería](fase-12-frontend-admin.md) | 6 (apoyo) | 11 | 1 d | [ ] |
 | 13 | [Pruebas](fase-13-pruebas.md) | 5, 7, 8 | 06, 10 | 1 d | [ ] |
 | 14 | [Documentación y entrega](fase-14-documentacion-entrega.md) | todas | 13 | 0.5 d | [ ] |
