@@ -97,3 +97,69 @@ git revert <hash>
 ## Notas
 - Elegir versión de Spring Boot idéntica a la del resto (coherencia).
 - Mantener el mismo estilo de `Dockerfile` para facilitar el compose.
+
+---
+
+## Resultado — 2026-10-16
+
+### Ajustes respecto al plan original de este archivo
+
+El snippet de `application.yml` de la sección *Pasos* quedó desactualizado frente a las decisiones posteriores (ver `_estado-ep3.md` §2). Se aplicó lo siguiente:
+
+| Punto del archivo | Aplicado en la práctica | Motivo |
+|-------------------|-------------------------|--------|
+| `username: guest` / sin `virtual-host` | `andesstay` / `AndesStay2024!` / vhost `andesstay` | El broker de `infra/mq/compose.yml` **no** tiene usuario `guest` |
+| Bloque `andesstay.messaging` solo con `exchange/dlx/dlq` | Bloque **completo** (con `dlq-routing-key`, `queues` y `routing-keys`), idéntico a `notify` | Una única convención de topología (indicador 1) |
+| `spring-boot-starter-oauth2-resource-server` "puede añadirse luego" | **No** se añade en esta tarea | Trae `spring-boot-starter-security`, que dejaría `/actuator/health` en 401. Se añade en la tarea 11 con su `SecurityConfig` |
+| (no estaba en la lista) | Se creó `config/MessagingProperties` | Enlazar el bloque `andesstay.messaging.*` (indicador 1); es configuración pura, sin lógica de administración |
+
+### Archivos creados
+
+```
+Backend-api/ms-andesstay-mqadmin/
+├── pom.xml                     parent Spring Boot 3.3.4, Java 21
+├── Dockerfile                  multi-stage, EXPOSE 8086
+├── mvnw / mvnw.cmd / .mvn/     wrapper copiado de notify
+├── .gitignore / .gitattributes copiados de notify
+└── src/main/
+    ├── java/com/duocuc/ms_andesstay_mqadmin/
+    │   ├── MsAndesstayMqadminApplication.java
+    │   └── config/MessagingProperties.java
+    └── resources/application.yml   puerto 8086 + rabbitmq + andesstay.messaging.*
+```
+
+Dependencias: `web`, `amqp`, `validation`, `actuator`, `test`. Se modificó `README.md` (mención del servicio en el puerto 8086). `git add -A --dry-run` confirma que `target/` y `maven-wrapper.jar` quedan excluidos por el `.gitignore` heredado.
+
+### Verificación
+
+**1. Compilación del módulo nuevo:** `.\mvnw.cmd -B clean package -DskipTests` → **BUILD SUCCESS**, jar `ms-andesstay-mqadmin-0.0.1-SNAPSHOT.jar`.
+
+**2. Arranque real:** `java -jar target\...jar`
+```text
+Tomcat started on port 8086 (http) with context path '/'
+Started MsAndesstayMqadminApplication in 2.019 seconds
+```
+`GET /actuator/health` → `HTTP 503` con `{"status":"DOWN"}`, y en el log:
+```text
+WARN o.s.b.a.amqp.RabbitHealthIndicator : Rabbit health check failed
+org.springframework.amqp.AmqpConnectException: java.net.ConnectException: Connection refused
+```
+El servicio arranca correctamente; el `DOWN` es **solo** porque no hay broker en este entorno (ver hallazgo).
+
+### Hallazgo de entorno (limita el DoD "health UP con RabbitMQ")
+
+- **No hay broker disponible en esta máquina:** `localhost:5672` y `15672` cerrados, y no hay Docker/WSL instalados (no se pudo hacer `docker compose -f infra/mq/compose.yml up -d`). Por eso no se pudo verificar `/actuator/health` en `UP` con RabbitMQ conectado; sí se verificó el arranque y que el indicador `rabbit` reporta `DOWN` por ausencia de broker. La verificación completa requiere levantar `infra/mq` (como en las tareas 03–07).
+
+- **`bff` y `reservations` no compilan en este entorno, de forma preexistente:** el `java` por defecto es **JDK 26.0.1**, y Lombok (el gestionado por Spring Boot 3.3.4) falla con JDK 26 →
+  ```text
+  Fatal error compiling: java.lang.ExceptionInInitializerError: com.sun.tools.javac.code.TypeTag :: UNKNOWN
+  ```
+  Afecta **solo** a los dos módulos que usan Lombok. Es independiente de esta tarea: `bff`/`reservations` están idénticos a `HEAD` (esta tarea solo añade un módulo standalone y 1 línea en `README.md`; no hay pom agregador en `Backend-api/`). Los otros 5 módulos (`audit`, `catalog`, `notify`, `report`, `mqadmin`) compilan con **BUILD SUCCESS**.
+
+### Rollback
+
+```bash
+git revert <hash>
+# o eliminar Backend-api/ms-andesstay-mqadmin/ por completo
+```
+Módulo aislado: no afecta a ningún servicio existente.

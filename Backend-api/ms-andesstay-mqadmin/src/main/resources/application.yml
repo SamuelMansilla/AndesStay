@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ms-andesstay-mqadmin — configuración del servicio
+# Tarea 08 (EP3): esqueleto del microservicio administrador de RabbitMQ.
+#
+# La topología de mensajería (indicador 1) se declara aquí una sola vez, bajo
+# andesstay.messaging.*, con la MISMA convención que ms-andesstay-notify
+# (q.<dominio>.<acción>, ex.andesstay.<dominio>). El servicio no consume colas:
+# solo administra el broker (tareas 09 y 10).
+# ─────────────────────────────────────────────────────────────────────────────
+spring:
+  application:
+    name: ms-andesstay-mqadmin
+
+  rabbitmq:
+    # Conexión al broker. Los defaults corresponden al cluster local de
+    # infra/mq/compose.yml (usuario andesstay, vhost andesstay); en EC2/otros
+    # entornos se sobrescriben con las variables de entorno indicadas.
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:andesstay}
+    password: "${RABBITMQ_PASS:AndesStay2024!}"
+    virtual-host: ${RABBITMQ_VHOST:andesstay}
+
+server:
+  port: 8086
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+andesstay:
+  messaging:
+    # ── Exchanges ──────────────────────────────────────────────────────────────
+    # exchange: exchange principal donde publican los productores (reservations, notify, admin).
+    # dlx:      Dead Letter Exchange; destino de los mensajes rechazados o agotados.
+    exchange: ex.andesstay.notifications
+    dlx: ex.andesstay.dlx
+
+    # ── Dead Letter Queue ─────────────────────────────────────────────────────
+    # dlq:             cola compartida donde terminan los mensajes descartados.
+    # dlq-routing-key: routing key con la que cada cola reenvía sus descartes al DLX.
+    dlq: q.andesstay.dlq
+    dlq-routing-key: dlq.routing.key
+
+    # ── Colas por caso de uso ─────────────────────────────────────────────────
+    # Convención: q.<dominio>.<acción> (ver context.md §7).
+    queues:
+      notify-email: q.notify.email
+      notify-sms: q.notify.sms
+      notify-push: q.notify.push
+      housekeeping-tickets: q.housekeeping.tickets
+      docs-generate: q.docs.generate
+
+    # ── Routing keys por caso de uso ──────────────────────────────────────────
+    # Convención: <dominio>.<acción>. Deben coincidir con las bindings declaradas.
+    routing-keys:
+      notify-email: notify.email
+      notify-sms: notify.sms
+      notify-push: notify.push
+      housekeeping-ticket: housekeeping.ticket
+      docs-generate: docs.generate

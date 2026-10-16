@@ -57,7 +57,7 @@ Ejemplo: `feat(notify): centralizar topología RabbitMQ en MessagingProperties`
 | 05 | [notify: ACK, reintentos y DLQ](fase-05-notify-ack-reintentos-dlq.md) | 5 (20%) | 03 | 1 d | [x] |
 | 06 | [notify: consumidores por dominio](fase-06-notify-consumidores-por-dominio.md) | 4 (15%) | 04, 05 | 1 d | [x] |
 | 07 | [reservations: publicar tickets y documentos](fase-07-reservations-productores.md) | 1, 3 | 03 | 1 d | [x] |
-| 08 | [mqadmin: esqueleto del microservicio](fase-08-mqadmin-esqueleto.md) | — | 01 | 0.5 d | [ ] |
+| 08 | [mqadmin: esqueleto del microservicio](fase-08-mqadmin-esqueleto.md) | — | 01 | 0.5 d | [x] |
 | 09 | [mqadmin: RabbitAdminService](fase-09-mqadmin-rabbitadmin-service.md) | 7 (10%) | 08 | 1 d | [ ] |
 | 10 | [mqadmin: REST + validación](fase-10-mqadmin-rest-validacion.md) | 6 (13%), 8 (7%) | 09 | 1 d | [ ] |
 | 11 | [mqadmin: seguridad, BFF e infra](fase-11-mqadmin-seguridad-bff-infra.md) | JWT / 6 | 10 | 0.5 d | [ ] |

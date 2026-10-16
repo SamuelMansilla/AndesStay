@@ -12,6 +12,7 @@ Plataforma unificada para la gestión de reservas web, administración de dispon
   - `ms-andesstay-report` (Puerto 8084): Panel de analítica y KPIs en tiempo real (consumidor Kafka).
   - `ms-andesstay-audit` (Puerto 8085): Trazabilidad inmutable y timeline de eventos (consumidor Kafka).
   - `ms-andesstay-notify` (Puerto 8083): Envío de notificaciones y tickets de housekeeping (consumidor RabbitMQ).
+  - `ms-andesstay-mqadmin` (Puerto 8086): Administración de RabbitMQ (colas, exchanges y bindings).
 - **Base de Datos:** **Supabase PostgreSQL** en AWS US-East-1 (Transaction Mode Pooler en puerto 6543).
 
 ---
