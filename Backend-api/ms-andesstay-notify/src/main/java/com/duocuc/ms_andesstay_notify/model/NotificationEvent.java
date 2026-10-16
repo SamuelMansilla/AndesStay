@@ -47,4 +47,15 @@ public class NotificationEvent implements Serializable {
 
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+
+    /** Resumen legible para los logs de ACK/reintento/descarte (ver tarea 05). */
+    @Override
+    public String toString() {
+        return "NotificationEvent{notificationId='" + notificationId
+                + "', reservationId=" + reservationId
+                + ", recipient='" + recipient
+                + "', channel='" + channel
+                + "', subject='" + subject
+                + "', body='" + body + "'}";
+    }
 }

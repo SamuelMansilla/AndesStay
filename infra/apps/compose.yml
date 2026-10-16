@@ -40,6 +40,7 @@ services:
       SERVICES_NOTIFY_URL: http://notify-svc:8083
       SERVICES_REPORT_URL: http://report-svc:8084
       SERVICES_AUDIT_URL: http://audit-svc:8085
+      SERVICES_MQADMIN_URL: http://mqadmin-svc:8086
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AZURE_ISSUER_URI}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES: ${AZURE_AUDIENCE}
     restart: unless-stopped
@@ -48,6 +49,7 @@ services:
       - catalog-svc
       - report-svc
       - audit-svc
+      - mqadmin-svc
     networks:
       - andesstay-apps
 
@@ -142,6 +144,27 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
       KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    restart: unless-stopped
+    networks:
+      - andesstay-apps
+
+  # ─── Microservicio Administrador de RabbitMQ — Puerto 8086 ───────────────
+  mqadmin-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-mqadmin
+      dockerfile: Dockerfile
+    container_name: mqadmin-svc
+    image: andesstay/mqadmin:latest
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST:-localhost}
+      SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-andesstay}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-AndesStay2024!}
+      SPRING_RABBITMQ_VIRTUAL_HOST: ${RABBITMQ_VHOST:-andesstay}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AZURE_ISSUER_URI}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES: ${AZURE_AUDIENCE}
     restart: unless-stopped
     networks:
       - andesstay-apps

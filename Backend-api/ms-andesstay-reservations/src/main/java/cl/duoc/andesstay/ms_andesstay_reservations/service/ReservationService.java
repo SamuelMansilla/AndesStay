@@ -5,6 +5,7 @@ import cl.duoc.andesstay.ms_andesstay_reservations.dto.UpdateStatusDTO;
 import cl.duoc.andesstay.ms_andesstay_reservations.entity.Reservation;
 import cl.duoc.andesstay.ms_andesstay_reservations.entity.ReservationStatus;
 import cl.duoc.andesstay.ms_andesstay_reservations.event.ReservationEventPublisher;
+import cl.duoc.andesstay.ms_andesstay_reservations.messaging.ReservationMessagingPublisher;
 import cl.duoc.andesstay.ms_andesstay_reservations.repository.ReservationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,11 +18,14 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final ReservationEventPublisher eventPublisher;
+    private final ReservationMessagingPublisher messagingPublisher;
 
     public ReservationService(ReservationRepository reservationRepository,
-                              ReservationEventPublisher eventPublisher) {
+                              ReservationEventPublisher eventPublisher,
+                              ReservationMessagingPublisher messagingPublisher) {
         this.reservationRepository = reservationRepository;
         this.eventPublisher = eventPublisher;
+        this.messagingPublisher = messagingPublisher;
     }
 
     @Transactional
@@ -50,6 +54,10 @@ public class ReservationService {
                 "Reserva creada para unidad #" + saved.getUnitId() + " por " + saved.getGuestEmail(),
                 saved.getCreatedAt()
         );
+
+        // Evento de negocio hacia RabbitMQ: la reserva creada necesita su voucher.
+        // Asíncrono y tolerante a fallos: si el broker no está, el endpoint responde igual.
+        messagingPublisher.publishVoucherEvent(saved.getId(), saved.getGuestEmail());
 
         return saved;
     }
@@ -106,6 +114,16 @@ public class ReservationService {
                 eventType + " para reserva #" + updated.getId() + " por " + updated.getGuestEmail(),
                 updated.getCreatedAt()
         );
+
+        // Eventos de negocio hacia RabbitMQ según la transición de estado
+        // (asíncronos y tolerantes a fallos: nunca bloquean ni rompen el core)
+        switch (nextStatus) {
+            // Reserva confirmada: se emite la factura.
+            case CONFIRMADA -> messagingPublisher.publishInvoiceEvent(updated.getId(), updated.getGuestEmail());
+            // Checkout: se genera el ticket de aseo para la unidad.
+            case CHECKOUT -> messagingPublisher.publishTicketEvent(updated.getId(), updated.getUnitId());
+            default -> { /* sin evento de mensajería para esta transición */ }
+        }
 
         return updated;
     }

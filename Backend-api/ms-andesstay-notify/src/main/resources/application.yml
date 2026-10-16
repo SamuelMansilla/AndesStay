@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ms-andesstay-notify — configuración del servicio
+# Tarea 02 (EP3): TODA la topología de mensajería vive aquí (indicador 1).
+# Regla: ningún nombre de cola/exchange/binding/routing key se escribe como
+#        literal en clases Java; se leen vía MessagingProperties.
+# ─────────────────────────────────────────────────────────────────────────────
+spring:
+  application:
+    name: ms-andesstay-notify
+
+  rabbitmq:
+    # Conexión al broker. Los defaults corresponden al cluster local de
+    # infra/mq/compose.yml (usuario andesstay, vhost andesstay); en EC2/otros
+    # entornos se sobrescriben con las variables de entorno indicadas.
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:andesstay}
+    password: "${RABBITMQ_PASS:AndesStay2024!}"
+    virtual-host: ${RABBITMQ_VHOST:andesstay}
+
+    # ── Consumidores de los @RabbitListener ────────────────────────────────────
+    # Se configuran en JAVA (config/RabbitListenerConfig): acknowledge-mode=MANUAL,
+    # default-requeue-rejected=false, missing-queues-fatal=false, prefetch=10,
+    # 2 consumidores y reintentos acotados (3 intentos / 2 s) sólo para errores
+    # recuperables. Se hace allí a propósito: al declarar un factory propio se
+    # sustituye el de Spring Boot, por lo que cualquier clave
+    # "spring.rabbitmq.listener.*" sería ignorada y dejaría la configuración
+    # repartida y engañosa (tarea 05).
+
+server:
+  port: 8083
+
+andesstay:
+  messaging:
+    # ── Exchanges ──────────────────────────────────────────────────────────────
+    # exchange: exchange principal donde publican los productores (reservations, notify, admin).
+    # dlx:      Dead Letter Exchange; destino de los mensajes rechazados o agotados.
+    exchange: ex.andesstay.notifications
+    dlx: ex.andesstay.dlx
+
+    # ── Dead Letter Queue ─────────────────────────────────────────────────────
+    # dlq:            cola compartida donde terminan los mensajes descartados.
+    # dlq-routing-key: routing key con la que cada cola reenvía sus descartes al DLX.
+    dlq: q.andesstay.dlq
+    dlq-routing-key: dlq.routing.key
+
+    # ── Colas por caso de uso ─────────────────────────────────────────────────
+    # Convención: q.<dominio>.<acción> (ver context.md §7).
+    # notify-*:              notificaciones por canal, consumidas por este microservicio.
+    # housekeeping-tickets:  tickets de aseo; los publica reservations al CHECKOUT.
+    # docs-generate:         vouchers/facturas; los publica reservations al crear/confirmar.
+    queues:
+      notify-email: q.notify.email
+      notify-sms: q.notify.sms
+      notify-push: q.notify.push
+      housekeeping-tickets: q.housekeeping.tickets
+      docs-generate: q.docs.generate
+
+    # ── Routing keys por caso de uso ──────────────────────────────────────────
+    # Convención: <dominio>.<acción>. Deben coincidir con las bindings declaradas.
+    routing-keys:
+      notify-email: notify.email
+      notify-sms: notify.sms
+      notify-push: notify.push
+      housekeeping-ticket: housekeeping.ticket
+      docs-generate: docs.generate
+  notify:
+    # ── Gancho de demostración del ciclo reintento -> DLQ (tarea 05) ───────────
+    # Destinatarios para los que el envío falla de forma TRANSITORIA (recuperable).
+    # Vacío = desactivado; en operación normal no altera el comportamiento.
+    # Se activa sólo en la verificación:
+    #   --andesstay.notify.simulation.fail-recipients=retry@andesstay.cl
+    simulation:
+      fail-recipients: ${NOTIFY_FAIL_RECIPIENTS:}
