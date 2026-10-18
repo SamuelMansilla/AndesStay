@@ -1,28 +1,6 @@
 version: "3.9"
 
 # ─── Docker Compose de Microservicios AndesStay — Caso 5 ──────────────────────
-#
-# VARIABLES DE ENTORNO REQUERIDAS en EC2 (.env o export):
-#   KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29093,kafka-3:29094
-#   KAFKA_ENABLED=true
-#   RABBITMQ_HOST=rabbitmq-1
-#   RABBITMQ_PORT=5672
-#   RABBITMQ_USER=andesstay
-#   RABBITMQ_PASS=AndesStay2024!
-#   RABBITMQ_VHOST=andesstay
-#   DB_URL=jdbc:postgresql://aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
-#   DB_USER=postgres.rqoexnwaqkoqfkdccoaw
-#   DB_PASS=<supabase-password>
-#   AZURE_ISSUER_URI=https://login.microsoftonline.com/00d7b2a1-2793-4a06-883e-c37b29134049/v2.0
-#   AZURE_AUDIENCE=api://130c7bbc-6cfa-473f-b953-13c1ef4c2156
-#
-# USO:
-#   docker compose -f infra/apps/compose.yml up -d
-#   docker compose -f infra/apps/compose.yml logs -f
-#
-# NOTA: Para entorno LOCAL sin Kafka, omitir KAFKA_ENABLED (default false).
-#       El fallback HTTP entre servicios garantiza que reportería y auditoría
-#       reciban eventos inmediatamente aun sin broker.
 
 services:
   # ─── BFF (Backend For Frontend) — Puerto 8080 ─────────────────────────────
@@ -34,6 +12,9 @@ services:
     image: andesstay/bff:latest
     ports:
       - "8080:8080"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       SERVICES_RESERVATIONS_URL: http://reservations-svc:8081
       SERVICES_CATALOG_URL: http://catalog-svc:8082
@@ -62,6 +43,9 @@ services:
     image: andesstay/reservations:latest
     ports:
       - "8081:8081"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       SPRING_DATASOURCE_URL: ${DB_URL}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
@@ -83,6 +67,9 @@ services:
     image: andesstay/catalog:latest
     ports:
       - "8082:8082"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       SPRING_DATASOURCE_URL: ${DB_URL}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
@@ -119,6 +106,9 @@ services:
     image: andesstay/report:latest
     ports:
       - "8084:8084"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       SPRING_DATASOURCE_URL: ${DB_URL}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
@@ -138,6 +128,9 @@ services:
     image: andesstay/audit:latest
     ports:
       - "8085:8085"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       SPRING_DATASOURCE_URL: ${DB_URL}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
@@ -157,6 +150,9 @@ services:
     image: andesstay/mqadmin:latest
     ports:
       - "8086:8086"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       SPRING_RABBITMQ_HOST: ${RABBITMQ_HOST:-localhost}
       SPRING_RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
