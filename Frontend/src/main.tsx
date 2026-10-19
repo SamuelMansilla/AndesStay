@@ -5,6 +5,7 @@ import type { EventMessage, AuthenticationResult } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
 import { msalInstance } from "./authConfig";
 import App from "./App";
+import "./styles/global.css";
 
 async function main() {
     // Inicialización obligatoria en MSAL v3+

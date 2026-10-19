@@ -29,6 +29,18 @@ function describeError(err: unknown): string {
   return e.message ?? "Error desconocido";
 }
 
+/** Etiqueta visual de una cola: roja si es DLQ, ámbar si tiene mensajes pendientes, verde si está sana. */
+function queueBadge(q: QueueInfo): { className: string; label: string } {
+  const name = q.name.toLowerCase();
+  if (name.includes("dlq") || name.includes("dead") || name.includes("deadletter")) {
+    return { className: "badge badge--red", label: "DLQ" };
+  }
+  if ((q.messageCount ?? 0) > 0) {
+    return { className: "badge badge--amber", label: `${q.messageCount} pendiente${q.messageCount === 1 ? "" : "s"}` };
+  }
+  return { className: "badge badge--green", label: "activa" };
+}
+
 export function MessagesAdminPage() {
   const [queues, setQueues] = useState<QueueInfo[]>([]);
   const [exchanges, setExchanges] = useState<ExchangeInfo[]>([]);
@@ -40,6 +52,15 @@ export function MessagesAdminPage() {
   const [newQueue, setNewQueue] = useState({ name: "", durable: true, autoDelete: false, deadLetter: true, ttl: "" });
   const [newExchange, setNewExchange] = useState({ name: "", type: "direct" });
   const [newBinding, setNewBinding] = useState({ queue: "", exchange: "", routingKey: "" });
+  const [testMessage, setTestMessage] = useState({
+    destinationType: "queue" as "queue" | "exchange",
+    queue: "",
+    exchange: "",
+    routingKey: "",
+    payload:
+      '{"reservationId":1,"recipient":"huesped@andesstay.cl","channel":"EMAIL","subject":"Prueba desde el panel","body":"Hola desde AndesStay"}',
+  });
+  const [publishing, setPublishing] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -63,6 +84,22 @@ export function MessagesAdminPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Pre-selección amable: mejor cola de demo y exchange principal
+  useEffect(() => {
+    setTestMessage((s) => {
+      const next = { ...s };
+      if (!next.queue && queues.length > 0) {
+        const demo = queues.find((q) => /^q\.demo/.test(q.name)) ?? queues[0];
+        next.queue = demo.name;
+      }
+      if (!next.exchange && exchanges.length > 0) {
+        const principal = exchanges.find((x) => x.name.includes("notifications")) ?? exchanges[0];
+        next.exchange = principal.name;
+      }
+      return next;
+    });
+  }, [queues, exchanges]);
 
   const runAction = async (action: () => Promise<void>, successMessage: string) => {
     setError(null);
@@ -134,221 +171,363 @@ export function MessagesAdminPage() {
     );
   };
 
+  const handlePublishTestMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPublishing(true);
+    setError(null);
+    setNotice(null);
+    const body =
+      testMessage.destinationType === "queue"
+        ? { queue: testMessage.queue, payload: testMessage.payload }
+        : { exchange: testMessage.exchange, routingKey: testMessage.routingKey, payload: testMessage.payload };
+    void (async () => {
+      try {
+        const result = await mqAdminService.publishMessage(body);
+        setNotice(
+          `📤 Mensaje publicado: destino ${result.destination} --[${result.routingKey}] (${result.bytes} bytes). Observa los contadores y las gráficas en la Management UI de RabbitMQ.`
+        );
+        await refresh();
+      } catch (err) {
+        setError(describeError(err));
+      } finally {
+        setPublishing(false);
+      }
+    })();
+  };
+
   return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+    <div className="page">
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 style={{ margin: 0, color: "#0f172a" }}>Administración de Mensajería (RabbitMQ)</h1>
-          <p style={{ color: "#64748b", margin: "0.25rem 0 0 0" }}>
+          <h1 className="page-title">Administración de Mensajería (RabbitMQ)</h1>
+          <p className="page-subtitle">
             Colas, exchanges y bindings del broker, vía ms-andesstay-mqadmin.
           </p>
         </div>
-        <button onClick={() => void refresh()} disabled={loading} style={buttonStyle}>
+        <button onClick={() => void refresh()} disabled={loading} className="btn btn-secondary btn-sm">
           {loading ? "Cargando..." : "↻ Refrescar"}
         </button>
       </div>
 
-      {error && <div style={alertErrorStyle}>⛔ {error}</div>}
-      {notice && <div style={alertOkStyle}>✅ {notice}</div>}
+      {error && <div className="alert alert--error" style={{ marginBottom: "1rem" }}>⛔ {error}</div>}
+      {notice && <div className="alert alert--success" style={{ marginBottom: "1rem" }}>✅ {notice}</div>}
+
+      {loading && queues.length === 0 && exchanges.length === 0 && bindings.length === 0 && (
+        <div style={{ display: "flex", justifyContent: "center", padding: "3rem 0" }}>
+          <div className="spinner" />
+        </div>
+      )}
+
+      {/* ENVIAR MENSAJE DE PRUEBA */}
+      <section className="section-gap">
+        <h2 className="section-title">🚀 Enviar mensaje de prueba (generar tráfico)</h2>
+        <div className="card accent-top accent-top--blue">
+          <p style={{ color: "#64748b", fontSize: "0.85rem", margin: "0 0 0.9rem 0" }}>
+            Publica un mensaje real al broker. <strong>Directo a una cola</strong> hace que el contador
+            "Mensajes" de esa cola suba y baje aquí mismo;{" "}
+            <strong>vía exchange</strong> respeta los bindings y verás el pico de tráfico en la
+            Management UI de RabbitMQ.
+          </p>
+          <form onSubmit={handlePublishTestMessage} style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+            <div style={formRowStyle}>
+              <select
+                value={testMessage.destinationType}
+                onChange={(e) =>
+                  setTestMessage((s) => ({ ...s, destinationType: e.target.value as "queue" | "exchange" }))
+                }
+                style={{ flex: "0 0 260px" }}
+              >
+                <option value="queue">📦 Directo a una cola</option>
+                <option value="exchange">🔁 Vía exchange (+ routing key)</option>
+              </select>
+
+              {testMessage.destinationType === "queue" ? (
+                <select
+                  value={testMessage.queue}
+                  onChange={(e) => setTestMessage((s) => ({ ...s, queue: e.target.value }))}
+                  style={{ flex: 1 }}
+                  required
+                >
+                  <option value="">Cola…</option>
+                  {queues.map((q) => (
+                    <option key={q.name} value={q.name}>{q.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <>
+                  <select
+                    value={testMessage.exchange}
+                    onChange={(e) => setTestMessage((s) => ({ ...s, exchange: e.target.value }))}
+                    style={{ flex: 1 }}
+                    required
+                  >
+                    <option value="">Exchange…</option>
+                    {exchanges.map((x) => (
+                      <option key={x.name} value={x.name}>{x.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    placeholder="Routing key (ej. notify.email)"
+                    value={testMessage.routingKey}
+                    onChange={(e) => setTestMessage((s) => ({ ...s, routingKey: e.target.value }))}
+                    style={{ flex: 1 }}
+                  />
+                </>
+              )}
+            </div>
+
+            <textarea
+              value={testMessage.payload}
+              onChange={(e) => setTestMessage((s) => ({ ...s, payload: e.target.value }))}
+              rows={3}
+              spellCheck={false}
+              style={{
+                fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
+                fontSize: "0.82rem",
+                resize: "vertical",
+              }}
+              required
+            />
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <button type="submit" className="btn btn-primary" disabled={publishing}>
+                {publishing ? "Publicando…" : "📤 Publicar mensaje"}
+              </button>
+              <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                Tip: envía a una cola sin consumidores para ver "Mensajes: 1" acumulado en la tabla.
+              </span>
+            </div>
+          </form>
+        </div>
+      </section>
 
       {/* COLAS */}
-      <section style={cardStyle}>
-        <h2 style={sectionTitleStyle}>Colas ({queues.length})</h2>
+      <section className="section-gap">
+        <h2 className="section-title">📮 Colas ({queues.length})</h2>
 
-        <form onSubmit={handleCreateQueue} style={formRowStyle}>
-          <input
-            placeholder="Nombre (q.mi.cola)"
-            value={newQueue.name}
-            onChange={(e) => setNewQueue((s) => ({ ...s, name: e.target.value }))}
-            style={{ ...inputStyle, flex: 2 }}
-            required
-          />
-          <input
-            placeholder="TTL (ms, opcional)"
-            value={newQueue.ttl}
-            onChange={(e) => setNewQueue((s) => ({ ...s, ttl: e.target.value }))}
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <label style={checkStyle}>
-            <input type="checkbox" checked={newQueue.durable} onChange={(e) => setNewQueue((s) => ({ ...s, durable: e.target.checked }))} /> durable
-          </label>
-          <label style={checkStyle}>
-            <input type="checkbox" checked={newQueue.deadLetter} onChange={(e) => setNewQueue((s) => ({ ...s, deadLetter: e.target.checked }))} /> DLQ
-          </label>
-          <label style={checkStyle}>
-            <input type="checkbox" checked={newQueue.autoDelete} onChange={(e) => setNewQueue((s) => ({ ...s, autoDelete: e.target.checked }))} /> auto-delete
-          </label>
-          <button type="submit" style={primaryButtonStyle}>Crear cola</button>
-        </form>
+        <div className="card accent-top accent-top--teal" style={{ marginBottom: "1rem" }}>
+          <form onSubmit={handleCreateQueue} style={formRowStyle}>
+            <input
+              placeholder="Nombre (q.mi.cola)"
+              value={newQueue.name}
+              onChange={(e) => setNewQueue((s) => ({ ...s, name: e.target.value }))}
+              style={{ flex: 2 }}
+              required
+            />
+            <input
+              placeholder="TTL (ms, opcional)"
+              value={newQueue.ttl}
+              onChange={(e) => setNewQueue((s) => ({ ...s, ttl: e.target.value }))}
+              style={{ flex: 1 }}
+            />
+            <label style={checkStyle}>
+              <input type="checkbox" checked={newQueue.durable} onChange={(e) => setNewQueue((s) => ({ ...s, durable: e.target.checked }))} /> durable
+            </label>
+            <label style={checkStyle}>
+              <input type="checkbox" checked={newQueue.deadLetter} onChange={(e) => setNewQueue((s) => ({ ...s, deadLetter: e.target.checked }))} /> DLQ
+            </label>
+            <label style={checkStyle}>
+              <input type="checkbox" checked={newQueue.autoDelete} onChange={(e) => setNewQueue((s) => ({ ...s, autoDelete: e.target.checked }))} /> auto-delete
+            </label>
+            <button type="submit" className="btn btn-primary btn-sm">Crear cola</button>
+          </form>
+        </div>
 
-        <table style={tableStyle}>
-          <thead>
-            <tr style={theadRowStyle}>
-              <th style={thStyle}>Nombre</th>
-              <th style={thStyle}>Mensajes</th>
-              <th style={thStyle}>Consumidores</th>
-              <th style={thStyle}>Durable</th>
-              <th style={thStyle}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queues.length === 0 && (
-              <tr><td colSpan={5} style={emptyStyle}>{loading ? "Cargando colas..." : "Sin colas."}</td></tr>
-            )}
-            {queues.map((q) => (
-              <tr key={q.name} style={tbodyRowStyle}>
-                <td style={{ ...tdStyle, fontWeight: 600 }}>{q.name}</td>
-                <td style={tdStyle}>{q.messageCount ?? "—"}</td>
-                <td style={tdStyle}>{q.consumerCount ?? "—"}</td>
-                <td style={tdStyle}>{q.durable ? "sí" : "no"}</td>
-                <td style={tdStyle}>
-                  <button onClick={() => handlePurgeQueue(q.name)} style={secondaryButtonStyle}>Purgar</button>
-                  <button onClick={() => handleDeleteQueue(q.name)} style={dangerButtonStyle}>Eliminar</button>
-                </td>
+        <div className="card table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th>Mensajes</th>
+                <th>Consumidores</th>
+                <th>Durable</th>
+                <th>Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {queues.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="empty-state">
+                      <span className="empty-icon">✉️</span>
+                      <span>Sin colas.</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {queues.map((q) => {
+                const badge = queueBadge(q);
+                return (
+                  <tr key={q.name}>
+                    <td style={{ fontWeight: 600 }}>{q.name}</td>
+                    <td><span className={badge.className}>{badge.label}</span></td>
+                    <td>{q.messageCount ?? "—"}</td>
+                    <td>{q.consumerCount ?? "—"}</td>
+                    <td>
+                      {q.durable
+                        ? <span className="badge badge--green">durable</span>
+                        : <span className="badge badge--slate">efímera</span>}
+                    </td>
+                    <td>
+                      <button onClick={() => handlePurgeQueue(q.name)} className="btn btn-secondary btn-sm" style={{ marginRight: "0.4rem" }}>
+                        Purgar
+                      </button>
+                      <button onClick={() => handleDeleteQueue(q.name)} className="btn btn-danger btn-sm">Eliminar</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* EXCHANGES */}
-      <section style={cardStyle}>
-        <h2 style={sectionTitleStyle}>Exchanges ({exchanges.length})</h2>
-        <form onSubmit={handleCreateExchange} style={formRowStyle}>
-          <input
-            placeholder="Nombre (ex.mi.exchange)"
-            value={newExchange.name}
-            onChange={(e) => setNewExchange((s) => ({ ...s, name: e.target.value }))}
-            style={{ ...inputStyle, flex: 2 }}
-            required
-          />
-          <select
-            value={newExchange.type}
-            onChange={(e) => setNewExchange((s) => ({ ...s, type: e.target.value }))}
-            style={{ ...inputStyle, flex: 1 }}
-          >
-            <option value="direct">direct</option>
-            <option value="topic">topic</option>
-            <option value="fanout">fanout</option>
-            <option value="headers">headers</option>
-          </select>
-          <button type="submit" style={primaryButtonStyle}>Crear exchange</button>
-        </form>
+      <section className="section-gap">
+        <h2 className="section-title">🔁 Exchanges ({exchanges.length})</h2>
 
-        <table style={tableStyle}>
-          <thead>
-            <tr style={theadRowStyle}>
-              <th style={thStyle}>Nombre</th>
-              <th style={thStyle}>Tipo</th>
-              <th style={thStyle}>Durable</th>
-              <th style={thStyle}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {exchanges.length === 0 && (
-              <tr><td colSpan={4} style={emptyStyle}>{loading ? "Cargando exchanges..." : "Sin exchanges."}</td></tr>
-            )}
-            {exchanges.map((x) => (
-              <tr key={x.name} style={tbodyRowStyle}>
-                <td style={{ ...tdStyle, fontWeight: 600 }}>{x.name}</td>
-                <td style={tdStyle}>{x.type}</td>
-                <td style={tdStyle}>{x.durable ? "sí" : "no"}</td>
-                <td style={tdStyle}>
-                  <button onClick={() => handleDeleteExchange(x.name)} style={dangerButtonStyle}>Eliminar</button>
-                </td>
+        <div className="card accent-top accent-top--violet" style={{ marginBottom: "1rem" }}>
+          <form onSubmit={handleCreateExchange} style={formRowStyle}>
+            <input
+              placeholder="Nombre (ex.mi.exchange)"
+              value={newExchange.name}
+              onChange={(e) => setNewExchange((s) => ({ ...s, name: e.target.value }))}
+              style={{ flex: 2 }}
+              required
+            />
+            <select
+              value={newExchange.type}
+              onChange={(e) => setNewExchange((s) => ({ ...s, type: e.target.value }))}
+              style={{ flex: 1 }}
+            >
+              <option value="direct">direct</option>
+              <option value="topic">topic</option>
+              <option value="fanout">fanout</option>
+              <option value="headers">headers</option>
+            </select>
+            <button type="submit" className="btn btn-primary btn-sm">Crear exchange</button>
+          </form>
+        </div>
+
+        <div className="card table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Durable</th>
+                <th>Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {exchanges.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={4}>
+                    <div className="empty-state">
+                      <span className="empty-icon">✉️</span>
+                      <span>Sin exchanges.</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {exchanges.map((x) => (
+                <tr key={x.name}>
+                  <td style={{ fontWeight: 600 }}>{x.name}</td>
+                  <td><span className="badge badge--violet">{x.type}</span></td>
+                  <td>
+                    {x.durable
+                      ? <span className="badge badge--green">durable</span>
+                      : <span className="badge badge--slate">efímero</span>}
+                  </td>
+                  <td>
+                    <button onClick={() => handleDeleteExchange(x.name)} className="btn btn-danger btn-sm">Eliminar</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* BINDINGS */}
-      <section style={cardStyle}>
-        <h2 style={sectionTitleStyle}>Bindings ({bindings.length})</h2>
-        <form onSubmit={handleCreateBinding} style={formRowStyle}>
-          <select
-            value={newBinding.exchange}
-            onChange={(e) => setNewBinding((s) => ({ ...s, exchange: e.target.value }))}
-            style={{ ...inputStyle, flex: 1 }}
-            required
-          >
-            <option value="">Exchange…</option>
-            {exchanges.map((x) => (
-              <option key={x.name} value={x.name}>{x.name}</option>
-            ))}
-          </select>
-          <select
-            value={newBinding.queue}
-            onChange={(e) => setNewBinding((s) => ({ ...s, queue: e.target.value }))}
-            style={{ ...inputStyle, flex: 1 }}
-            required
-          >
-            <option value="">Cola…</option>
-            {queues.map((q) => (
-              <option key={q.name} value={q.name}>{q.name}</option>
-            ))}
-          </select>
-          <input
-            placeholder="Routing key"
-            value={newBinding.routingKey}
-            onChange={(e) => setNewBinding((s) => ({ ...s, routingKey: e.target.value }))}
-            style={{ ...inputStyle, flex: 1 }}
-            required
-          />
-          <button type="submit" style={primaryButtonStyle}>Crear binding</button>
-        </form>
+      <section className="section-gap">
+        <h2 className="section-title">🔗 Bindings ({bindings.length})</h2>
 
-        <table style={tableStyle}>
-          <thead>
-            <tr style={theadRowStyle}>
-              <th style={thStyle}>Exchange</th>
-              <th style={thStyle}>Routing key</th>
-              <th style={thStyle}>Cola</th>
-              <th style={thStyle}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bindings.length === 0 && (
-              <tr><td colSpan={4} style={emptyStyle}>{loading ? "Cargando bindings..." : "Sin bindings."}</td></tr>
-            )}
-            {bindings.map((b) => (
-              <tr key={`${b.exchange}|${b.routingKey}|${b.queue}`} style={tbodyRowStyle}>
-                <td style={{ ...tdStyle, fontWeight: 600 }}>{b.exchange}</td>
-                <td style={tdStyle}>{b.routingKey}</td>
-                <td style={tdStyle}>{b.queue}</td>
-                <td style={tdStyle}>
-                  <button onClick={() => handleDeleteBinding(b)} style={dangerButtonStyle}>Eliminar</button>
-                </td>
+        <div className="card accent-top accent-top--teal" style={{ marginBottom: "1rem" }}>
+          <form onSubmit={handleCreateBinding} style={formRowStyle}>
+            <select
+              value={newBinding.exchange}
+              onChange={(e) => setNewBinding((s) => ({ ...s, exchange: e.target.value }))}
+              style={{ flex: 1 }}
+              required
+            >
+              <option value="">Exchange…</option>
+              {exchanges.map((x) => (
+                <option key={x.name} value={x.name}>{x.name}</option>
+              ))}
+            </select>
+            <select
+              value={newBinding.queue}
+              onChange={(e) => setNewBinding((s) => ({ ...s, queue: e.target.value }))}
+              style={{ flex: 1 }}
+              required
+            >
+              <option value="">Cola…</option>
+              {queues.map((q) => (
+                <option key={q.name} value={q.name}>{q.name}</option>
+              ))}
+            </select>
+            <input
+              placeholder="Routing key"
+              value={newBinding.routingKey}
+              onChange={(e) => setNewBinding((s) => ({ ...s, routingKey: e.target.value }))}
+              style={{ flex: 1 }}
+              required
+            />
+            <button type="submit" className="btn btn-primary btn-sm">Crear binding</button>
+          </form>
+        </div>
+
+        <div className="card table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Exchange</th>
+                <th>Routing key</th>
+                <th>Cola</th>
+                <th>Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {bindings.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={4}>
+                    <div className="empty-state">
+                      <span className="empty-icon">✉️</span>
+                      <span>Sin bindings.</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {bindings.map((b) => (
+                <tr key={`${b.exchange}|${b.routingKey}|${b.queue}`}>
+                  <td style={{ fontWeight: 600 }}>{b.exchange}</td>
+                  <td><span className="badge badge--teal">{b.routingKey}</span></td>
+                  <td>{b.queue}</td>
+                  <td>
+                    <button onClick={() => handleDeleteBinding(b)} className="btn btn-danger btn-sm">Eliminar</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );
 }
 
-// ── Estilos (inline, consistentes con el resto de páginas) ───────────────────
-const cardStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #e2e8f0",
-  borderRadius: "8px",
-  padding: "1.25rem",
-  marginBottom: "1.5rem",
-};
-const sectionTitleStyle: React.CSSProperties = { marginTop: 0, fontSize: "1rem", color: "#1e293b" };
-const tableStyle: React.CSSProperties = { width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" };
-const theadRowStyle: React.CSSProperties = { borderBottom: "1px solid #e2e8f0", color: "#64748b", textAlign: "left" };
-const tbodyRowStyle: React.CSSProperties = { borderBottom: "1px solid #f1f5f9" };
-const thStyle: React.CSSProperties = { padding: "0.5rem" };
-const tdStyle: React.CSSProperties = { padding: "0.5rem" };
-const emptyStyle: React.CSSProperties = { padding: "1.5rem", textAlign: "center", color: "#94a3b8" };
-const formRowStyle: React.CSSProperties = { display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", marginBottom: "1rem" };
-const inputStyle: React.CSSProperties = { padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid #cbd5e1" };
-const checkStyle: React.CSSProperties = { fontSize: "0.8rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.25rem" };
-const buttonStyle: React.CSSProperties = { background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "0.4rem 0.8rem", borderRadius: "6px", fontWeight: 600, cursor: "pointer" };
-const primaryButtonStyle: React.CSSProperties = { background: "#0284c7", color: "white", border: "none", padding: "0.45rem 0.9rem", borderRadius: "6px", fontWeight: 600, cursor: "pointer" };
-const secondaryButtonStyle: React.CSSProperties = { background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "0.25rem 0.6rem", borderRadius: "4px", fontWeight: 600, cursor: "pointer", marginRight: "0.4rem" };
-const dangerButtonStyle: React.CSSProperties = { background: "#fee2e2", color: "#b91c1c", border: "1px solid #fecaca", padding: "0.25rem 0.6rem", borderRadius: "4px", fontWeight: 600, cursor: "pointer" };
-const alertErrorStyle: React.CSSProperties = { padding: "0.75rem 1rem", marginBottom: "1rem", background: "#fef2f2", color: "#b91c1c", borderRadius: "6px", border: "1px solid #fecaca", fontSize: "0.875rem" };
-const alertOkStyle: React.CSSProperties = { padding: "0.75rem 1rem", marginBottom: "1rem", background: "#f0fdf4", color: "#15803d", borderRadius: "6px", border: "1px solid #bbf7d0", fontSize: "0.875rem" };
+// ── Estilos de layout (la apariencia proviene del sistema de diseño global) ──
+const formRowStyle: React.CSSProperties = { display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" };
+const checkStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: "0.35rem" };

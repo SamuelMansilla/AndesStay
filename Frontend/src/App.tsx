@@ -12,7 +12,7 @@ import { MessagesAdminPage } from "./pages/MessagesAdminPage";
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ minHeight: "100vh", background: "#f8fafc", color: "#0f172a", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div style={{ minHeight: "100vh", color: "#0f172a", fontFamily: "system-ui, -apple-system, sans-serif" }}>
         <Navbar />
         <main>
           <Routes>

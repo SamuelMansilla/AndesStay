@@ -7,8 +7,10 @@ import com.duocuc.ms_andesstay_mqadmin.model.ExchangeInfo;
 import com.duocuc.ms_andesstay_mqadmin.model.QueueInfo;
 import com.duocuc.ms_andesstay_mqadmin.service.dto.BindingRequest;
 import com.duocuc.ms_andesstay_mqadmin.service.dto.ExchangeRequest;
+import com.duocuc.ms_andesstay_mqadmin.service.dto.PublishRequest;
 import com.duocuc.ms_andesstay_mqadmin.service.dto.QueueRequest;
 import jakarta.annotation.PostConstruct;
+import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +28,10 @@ import org.springframework.amqp.core.HeadersExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueInformation;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageBuilder;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.stereotype.Service;
 
 /**
@@ -59,6 +65,7 @@ public class RabbitAdminService {
     private static final String X_MESSAGE_TTL = "x-message-ttl";
 
     private final AmqpAdmin amqpAdmin;
+    private final RabbitTemplate rabbitTemplate;
     private final MessagingProperties messaging;
 
     /** Recursos administrados: declarados en configuración + creados vía la API. */
@@ -66,8 +73,9 @@ public class RabbitAdminService {
     private final Map<String, Exchange> managedExchanges = new ConcurrentHashMap<>();
     private final Map<String, Binding> managedBindings = new ConcurrentHashMap<>();
 
-    public RabbitAdminService(AmqpAdmin amqpAdmin, MessagingProperties messaging) {
+    public RabbitAdminService(AmqpAdmin amqpAdmin, RabbitTemplate rabbitTemplate, MessagingProperties messaging) {
         this.amqpAdmin = amqpAdmin;
+        this.rabbitTemplate = rabbitTemplate;
         this.messaging = messaging;
     }
 
@@ -238,6 +246,61 @@ public class RabbitAdminService {
                 .toList();
         LOG.info("[MQADMIN] Listado de bindings administrados: {}", bindings.size());
         return bindings;
+    }
+
+    // ── Publicación de mensajes de prueba ─────────────────────────────────────
+
+    /**
+     * Publica un mensaje de prueba hacia el broker (trafico visible en el
+     * Management UI).
+     *
+     * <p>Modos mutuamente excluyentes:</p>
+     * <ul>
+     *   <li><b>exchange:</b> la salida sale por {@code ex.*} + routing key y se
+     *       enruta según los bindings declarados (o se descarta si no hay).</li>
+     *   <li><b>queue:</b> entra directo a la cola viajando por el exchange por
+     *       defecto ({@code ""}) con {@code routingKey = queue}; así un mensaje
+     *       queda visible como "Ready" aunque no existan consumidores.</li>
+     * </ul>
+     *
+     * @throws IllegalArgumentException si el destino es ambiguo o ausente (→ 409)
+     * @throws ResourceNotFoundException   si el exchange/cola no está administrado (→ 404)
+     */
+    public Map<String, Object> publishMessage(PublishRequest request) {
+        boolean toExchange = request.exchange() != null && !request.exchange().isBlank();
+        boolean toQueue = request.queue() != null && !request.queue().isBlank();
+
+        if (toExchange == toQueue) {
+            throw new IllegalArgumentException(
+                    "Indica un único destino: 'exchange' (con routingKey) o 'queue', no ambos ni ninguno");
+        }
+
+        Message message = MessageBuilder.withBody(request.payload().getBytes(StandardCharsets.UTF_8))
+                .setContentType(MessageProperties.CONTENT_TYPE_JSON)
+                .build();
+
+        String destination;
+        String routingKey;
+        if (toQueue) {
+            requireManagedQueue(request.queue());
+            routingKey = request.queue();
+            rabbitTemplate.send("", routingKey, message);
+            destination = "queue:" + request.queue();
+        } else {
+            requireManagedExchange(request.exchange());
+            routingKey = request.routingKey() == null ? "" : request.routingKey().trim();
+            rabbitTemplate.send(request.exchange(), routingKey, message);
+            destination = "exchange:" + request.exchange();
+        }
+
+        LOG.info("[MQADMIN] Mensaje publicado: {} --[{}]--> ({} bytes)",
+                destination, routingKey, message.getBody().length);
+
+        return Map.of(
+                "destination", destination,
+                "routingKey", routingKey,
+                "bytes", message.getBody().length,
+                "contentType", MessageProperties.CONTENT_TYPE_JSON);
     }
 
     // ── Construcción y conversión ─────────────────────────────────────────────

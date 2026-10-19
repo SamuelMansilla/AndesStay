@@ -137,44 +137,31 @@ export function CatalogPage() {
     }
   };
 
+  const accentByType: Record<string, string> = {
+    "Habitación": "accent-top--blue",
+    "Cabaña": "accent-top--teal",
+    "Lodge": "accent-top--green",
+  };
+
   return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+    <div className="page">
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ margin: 0, color: "#0f172a" }}>Catálogo de Unidades</h1>
-          <p style={{ color: "#64748b", margin: "0.25rem 0 0 0" }}>
+          <h1 className="page-title">Catálogo de Unidades</h1>
+          <p className="page-subtitle">
             Administración de habitaciones, cabañas, cupos, tarifas y disponibilidad en tiempo real.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem" }}>
           <button
+            className="btn btn-secondary btn-sm"
             onClick={refreshUnits}
             disabled={loading}
-            style={{
-              background: "#f1f5f9",
-              color: "#334155",
-              border: "1px solid #cbd5e1",
-              padding: "0.6rem 1rem",
-              borderRadius: "6px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
           >
             {loading ? "Cargando..." : "↻ Refrescar"}
           </button>
           {canEdit && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              style={{
-                background: "#059669",
-                color: "white",
-                border: "none",
-                padding: "0.6rem 1.25rem",
-                borderRadius: "6px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
+            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
               + Nueva Unidad
             </button>
           )}
@@ -182,17 +169,7 @@ export function CatalogPage() {
       </div>
 
       {error && (
-        <div
-          style={{
-            padding: "0.75rem 1rem",
-            marginBottom: "1rem",
-            background: "#fffbeb",
-            color: "#b45309",
-            borderRadius: "6px",
-            border: "1px solid #fde68a",
-            fontSize: "0.875rem",
-          }}
-        >
+        <div className="alert alert--error" style={{ marginBottom: "1.5rem" }}>
           ⚠️ {error}
         </div>
       )}
@@ -206,94 +183,83 @@ export function CatalogPage() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0,0,0,0.5)",
+            background: "rgba(15,23,42,0.55)",
+            backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 100,
+            padding: "1rem",
           }}
         >
           <div
+            className="card"
             style={{
-              background: "white",
-              padding: "2rem",
-              borderRadius: "8px",
-              maxWidth: "480px",
+              borderRadius: "16px",
+              maxWidth: "520px",
               width: "100%",
+              position: "relative",
+              overflow: "hidden",
+              boxShadow: "0 20px 45px -10px rgba(15,23,42,0.35)",
             }}
           >
-            <h2 style={{ marginTop: 0 }}>Añadir Unidad al Catálogo</h2>
+            <div style={{ position: "absolute", inset: "0 0 auto 0", height: "4px", background: "linear-gradient(90deg, #0284c7, #0d9488)" }} />
+            <h2 className="section-title" style={{ marginTop: "0.5rem", marginBottom: "1.25rem" }}>Añadir Unidad al Catálogo</h2>
             <form onSubmit={handleCreateUnit}>
-              <div style={{ marginBottom: "1rem" }}>
-                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                  Nombre de Unidad *
-                </label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", marginBottom: "1rem" }}>
+                <label htmlFor="new-unit-name">Nombre de Unidad *</label>
                 <input
+                  id="new-unit-name"
                   type="text"
                   required
                   placeholder="Ej: Cabaña Los Coihues #3"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                    Tipo *
-                  </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                  <label htmlFor="new-unit-type">Tipo *</label>
                   <select
+                    id="new-unit-type"
                     value={newType}
                     onChange={(e) => setNewType(e.target.value as "Habitación" | "Cabaña" | "Lodge")}
-                    style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                   >
                     <option value="Habitación">Habitación</option>
                     <option value="Cabaña">Cabaña</option>
                     <option value="Lodge">Lodge</option>
                   </select>
                 </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                    Capacidad (Personas) *
-                  </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                  <label htmlFor="new-unit-capacity">Capacidad (Personas) *</label>
                   <input
+                    id="new-unit-capacity"
                     type="number"
                     min={1}
                     max={20}
                     required
                     value={newCapacity}
                     onChange={(e) => setNewCapacity(Number(e.target.value))}
-                    style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                   />
                 </div>
               </div>
-              <div style={{ marginBottom: "1.5rem" }}>
-                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                  Tarifa por Noche ($CLP) *
-                </label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", marginBottom: "1.5rem" }}>
+                <label htmlFor="new-unit-price">Tarifa por Noche ($CLP) *</label>
                 <input
+                  id="new-unit-price"
                   type="number"
                   min={10000}
                   step={1000}
                   required
                   value={newPrice}
                   onChange={(e) => setNewPrice(Number(e.target.value))}
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  style={{ padding: "0.5rem 1rem", border: "1px solid #ccc", background: "#f8fafc", borderRadius: "4px" }}
-                >
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  style={{ padding: "0.5rem 1rem", background: "#059669", color: "white", border: "none", borderRadius: "4px" }}
-                >
+                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
                   {isSubmitting ? "Guardando..." : "Crear Unidad"}
                 </button>
               </div>
@@ -305,49 +271,47 @@ export function CatalogPage() {
       {/* FORMULARIO EDITAR TARIFA */}
       {editingUnit && (
         <div
-          style={{
-            background: "#f8fafc",
-            border: "1px solid #cbd5e1",
-            padding: "1rem",
-            borderRadius: "8px",
-            marginBottom: "1.5rem",
-          }}
+          className="card accent-top accent-top--amber"
+          style={{ marginBottom: "1.5rem" }}
         >
-          <h3 style={{ marginTop: 0 }}>Modificar Tarifa: {editingUnit.name}</h3>
-          <form onSubmit={handleUpdatePrice} style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <label style={{ fontSize: "0.9rem" }}>
-              Tarifa por noche ($CLP):
+          <h3 className="card-title" style={{ fontSize: "0.95rem", marginBottom: "0.9rem" }}>
+            Modificar Tarifa: {editingUnit.name}
+          </h3>
+          <form onSubmit={handleUpdatePrice} style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+              <label htmlFor="edit-price">Tarifa por noche ($CLP)</label>
               <input
+                id="edit-price"
                 type="number"
                 value={editingPrice}
                 onChange={(e) => setEditingPrice(Number(e.target.value))}
-                style={{ marginLeft: "0.5rem", padding: "0.35rem", borderRadius: "4px", border: "1px solid #ccc" }}
+                style={{ maxWidth: "180px" }}
               />
-            </label>
-            <button
-              type="submit"
-              style={{ background: "#16a34a", color: "white", border: "none", padding: "0.4rem 0.8rem", borderRadius: "4px", cursor: "pointer" }}
-            >
-              Guardar Tarifa
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditingUnit(null)}
-              style={{ background: "#94a3b8", color: "white", border: "none", padding: "0.4rem 0.8rem", borderRadius: "4px", cursor: "pointer" }}
-            >
-              Cancelar
-            </button>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", alignSelf: "flex-end", paddingBottom: "2px" }}>
+              <button type="submit" className="btn btn-primary btn-sm">
+                Guardar Tarifa
+              </button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingUnit(null)}>
+                Cancelar
+              </button>
+            </div>
           </form>
         </div>
       )}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem", padding: "3rem 1rem", color: "#64748b", fontSize: "0.9rem" }}>
+          <div className="spinner" />
           Cargando catálogo de unidades desde el backend...
         </div>
       ) : units.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>
-          No hay unidades registradas en el catálogo.
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-icon">🏕️</div>
+            <div style={{ fontWeight: 600, fontSize: "1rem", color: "#475569" }}>No hay unidades registradas en el catálogo</div>
+            <div style={{ fontSize: "0.85rem" }}>Crea tu primera unidad para empezar a gestionar el catálogo.</div>
+          </div>
         </div>
       ) : (
         <div
@@ -362,39 +326,28 @@ export function CatalogPage() {
             return (
               <div
                 key={unit.id}
+                className={`card card--hover accent-top ${accentByType[unit.type] ?? "accent-top--blue"}`}
                 style={{
-                  background: "white",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  padding: "1.25rem",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                 }}
               >
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                    <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#1e293b" }}>{unit.name}</h3>
-                    <span
-                      style={{
-                        background: unit.available ? "#dcfce7" : "#fee2e2",
-                        color: unit.available ? "#15803d" : "#991b1b",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        padding: "0.2rem 0.5rem",
-                        borderRadius: "12px",
-                      }}
-                    >
-                      {unit.available ? "Disponible" : "Ocupada / No disp."}
-                    </span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.5rem", paddingTop: "2px" }}>
+                    <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#1e293b", letterSpacing: "-0.2px" }}>{unit.name}</h3>
+                    {unit.available ? (
+                      <span className="badge badge--green">Disponible</span>
+                    ) : (
+                      <span className="badge badge--red">No disponible</span>
+                    )}
                   </div>
 
                   <div style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.75rem" }}>
                     Tipo: <strong>{unit.type}</strong> &bull; Capacidad: <strong>{unit.capacity} personas</strong>
                   </div>
 
-                  <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a", marginBottom: "0.75rem" }}>
+                  <div className="kpi-value" style={{ fontSize: "1.35rem", marginBottom: "0.75rem" }}>
                     ${Number(price).toLocaleString("es-CL")}{" "}
                     <span style={{ fontSize: "0.8rem", fontWeight: 400, color: "#64748b" }}>/ noche</span>
                   </div>
@@ -414,34 +367,29 @@ export function CatalogPage() {
                 {canEdit && (
                   <div style={{ display: "flex", gap: "0.5rem", paddingTop: "0.75rem", borderTop: "1px solid #f1f5f9" }}>
                     <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ flex: 1 }}
                       onClick={() => handleStartEditPrice(unit)}
-                      style={{
-                        flex: 1,
-                        padding: "0.4rem",
-                        fontSize: "0.8rem",
-                        background: "#f1f5f9",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
                     >
                       Editar Tarifa
                     </button>
-                    <button
-                      onClick={() => handleToggleAvailability(unit)}
-                      style={{
-                        flex: 1,
-                        padding: "0.4rem",
-                        fontSize: "0.8rem",
-                        background: unit.available ? "#fef2f2" : "#f0fdf4",
-                        color: unit.available ? "#dc2626" : "#16a34a",
-                        border: `1px solid ${unit.available ? "#fecaca" : "#bbf7d0"}`,
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {unit.available ? "Marcar No Disp." : "Habilitar"}
-                    </button>
+                    {unit.available ? (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => handleToggleAvailability(unit)}
+                      >
+                        Marcar No Disp.
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => handleToggleAvailability(unit)}
+                      >
+                        Habilitar
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

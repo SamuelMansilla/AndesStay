@@ -4,6 +4,7 @@ import type {
   BindingRequest,
   ExchangeInfo,
   ExchangeRequest,
+  PublishRequest,
   QueueInfo,
   QueueRequest,
 } from "../types";
@@ -52,6 +53,12 @@ export const mqAdminService = {
 
   async getBindings(): Promise<BindingInfo[]> {
     const response = await axiosClient.get<BindingInfo[]>("/api/mqadmin/bindings");
+    return response.data;
+  },
+
+  /** Publica un mensaje de prueba para generar tráfico visible en el Management UI. */
+  async publishMessage(payload: PublishRequest): Promise<PublishResult> {
+    const response = await axiosClient.post<PublishResult>("/api/mqadmin/publish", payload);
     return response.data;
   },
 

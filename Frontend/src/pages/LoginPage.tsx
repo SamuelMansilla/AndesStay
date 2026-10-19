@@ -41,67 +41,170 @@ export function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+        position: "relative",
+        overflow: "hidden",
+        background: "linear-gradient(165deg, #0b1526 0%, #10314d 45%, #0f3d50 100%)",
         padding: "1.5rem",
         color: "#f8fafc",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
+      {/* Orbes de luz decorativos */}
       <div
         style={{
-          background: "#ffffff",
-          color: "#0f172a",
-          padding: "2.5rem",
-          borderRadius: "12px",
-          maxWidth: "460px",
+          position: "absolute",
+          width: "420px",
+          height: "420px",
+          borderRadius: "50%",
+          top: "-140px",
+          right: "-100px",
+          background: "radial-gradient(circle, rgba(56, 189, 248, 0.22), transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          width: "480px",
+          height: "480px",
+          borderRadius: "50%",
+          bottom: "-180px",
+          left: "-140px",
+          background: "radial-gradient(circle, rgba(13, 148, 136, 0.22), transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Silueta de montañas de los Andes */}
+      <svg
+        viewBox="0 0 1440 320"
+        preserveAspectRatio="none"
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
           width: "100%",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)",
-          textAlign: "center",
+          height: "38vh",
+          pointerEvents: "none",
         }}
       >
-        <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🏔️</div>
-        <h1 style={{ fontSize: "1.75rem", margin: "0 0 0.5rem 0", fontWeight: 800 }}>
+        <path
+          d="M0 260 L180 140 L300 230 L430 90 L560 210 L700 60 L830 190 L980 100 L1120 220 L1250 110 L1440 240 L1440 320 L0 320 Z"
+          fill="#0a1826"
+          opacity="0.9"
+        />
+        <path
+          d="M0 300 L200 210 L340 290 L480 180 L640 280 L800 150 L950 270 L1100 190 L1280 290 L1440 200 L1440 320 L0 320 Z"
+          fill="#081320"
+          opacity="0.95"
+        />
+      </svg>
+
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          background: "rgba(255, 255, 255, 0.97)",
+          color: "#0f172a",
+          padding: "2.5rem 2.5rem 2rem 2.5rem",
+          borderRadius: "20px",
+          maxWidth: "440px",
+          width: "100%",
+          boxShadow: "0 30px 60px -12px rgba(2, 6, 23, 0.55), 0 0 0 1px rgba(148, 163, 184, 0.2)",
+          textAlign: "center",
+          animation: "as-fade-up 0.5s ease-out both",
+          overflow: "hidden",
+        }}
+      >
+        {/* Barra de acento superior */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "5px",
+            background: "linear-gradient(90deg, #0284c7, #38bdf8, #0d9488)",
+          }}
+        />
+
+        <div
+          style={{
+            width: "64px",
+            height: "64px",
+            margin: "0 auto 0.75rem auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "2rem",
+            borderRadius: "18px",
+            background: "linear-gradient(135deg, #0284c7, #0d9488)",
+            boxShadow: "0 10px 22px -6px rgba(2, 132, 199, 0.55)",
+          }}
+        >
+          🏔️
+        </div>
+
+        <h1 style={{ fontSize: "1.8rem", margin: "0 0 0.35rem 0", fontWeight: 800, letterSpacing: "-0.5px" }}>
           AndesStay
         </h1>
-        <p style={{ color: "#64748b", margin: "0 0 2rem 0", fontSize: "0.95rem" }}>
-          Plataforma Unificada de Reservas para Hostales y Cabañas
+        <p style={{ color: "#64748b", margin: "0 0 1.75rem 0", fontSize: "0.92rem" }}>
+          Plataforma Unificada de Reservas
+          <br />
+          para Hostales y Cabañas
         </p>
 
         <div
           style={{
-            background: "#f1f5f9",
-            borderRadius: "8px",
-            padding: "1rem",
-            marginBottom: "2rem",
+            background: "linear-gradient(135deg, #f0f9ff, #f8fafc)",
+            border: "1px solid #e0f2fe",
+            borderRadius: "12px",
+            padding: "1rem 1.1rem",
+            marginBottom: "1.75rem",
             textAlign: "left",
-            fontSize: "0.85rem",
+            fontSize: "0.83rem",
             color: "#334155",
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>
-            🔒 Acceso Corporativo Seguro (IDaaS)
+          <div style={{ fontWeight: 700, marginBottom: "0.3rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "20px",
+                height: "20px",
+                borderRadius: "50%",
+                background: "#dcfce7",
+                fontSize: "0.65rem",
+              }}
+            >
+              🔒
+            </span>
+            Acceso Corporativo Seguro (IDaaS)
           </div>
-          <div>
-            Autenticación federada mediante <strong>Microsoft Azure Entra ID</strong> con tokens JWT protegidos.
+          <div style={{ color: "#64748b" }}>
+            Autenticación federada mediante <strong>Microsoft Azure Entra ID</strong> con tokens JWT
+            protegidos.
           </div>
         </div>
 
         {errorMessage && (
           <div
             style={{
-              background: "#fee2e2",
-              border: "1px solid #ef4444",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
               color: "#991b1b",
-              borderRadius: "8px",
-              padding: "0.85rem",
+              borderRadius: "10px",
+              padding: "0.85rem 1rem",
               marginBottom: "1.5rem",
-              fontSize: "0.85rem",
+              fontSize: "0.83rem",
               textAlign: "left",
-              lineHeight: 1.4,
+              lineHeight: 1.45,
             }}
           >
-            <strong>⚠️ Error de autenticación:</strong>
-            <p style={{ margin: "0.25rem 0 0 0" }}>{errorMessage}</p>
+            <strong>⚠️ Error de autenticación</strong>
+            <p style={{ margin: "0.3rem 0 0 0" }}>{errorMessage}</p>
           </div>
         )}
 
@@ -112,25 +215,11 @@ export function LoginPage() {
               flexDirection: "column",
               alignItems: "center",
               gap: "1rem",
-              padding: "1rem 0",
+              padding: "1.25rem 0",
             }}
           >
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                border: "3px solid #e2e8f0",
-                borderTopColor: "#0078d4",
-                borderRadius: "50%",
-                animation: "andesstay-spin 0.8s linear infinite",
-              }}
-            />
-            <style>{`
-              @keyframes andesstay-spin {
-                to { transform: rotate(360deg); }
-              }
-            `}</style>
-            <p style={{ color: "#475569", fontSize: "0.95rem", fontWeight: 500, margin: 0 }}>
+            <div className="spinner" />
+            <p style={{ color: "#475569", fontSize: "0.92rem", fontWeight: 500, margin: 0 }}>
               Autenticando con Microsoft Entra ID...
             </p>
           </div>
@@ -147,13 +236,23 @@ export function LoginPage() {
               background: "#0078d4",
               color: "#ffffff",
               border: "none",
-              padding: "0.85rem 1.25rem",
-              borderRadius: "6px",
+              padding: "0.9rem 1.25rem",
+              borderRadius: "10px",
               fontSize: "1rem",
               fontWeight: 600,
               cursor: inProgress !== InteractionStatus.None ? "not-allowed" : "pointer",
-              boxShadow: "0 4px 6px -1px rgba(0, 120, 212, 0.4)",
-              transition: "background 0.2s, opacity 0.2s",
+              boxShadow: "0 6px 16px -4px rgba(0, 120, 212, 0.55)",
+              transition: "background 0.2s, transform 0.12s, box-shadow 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#106ebe";
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 8px 20px -4px rgba(0, 120, 212, 0.6)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#0078d4";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 6px 16px -4px rgba(0, 120, 212, 0.55)";
             }}
           >
             <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
@@ -166,8 +265,19 @@ export function LoginPage() {
           </button>
         )}
 
-        <div style={{ marginTop: "1.5rem", fontSize: "0.75rem", color: "#94a3b8" }}>
+        <div
+          style={{
+            marginTop: "1.6rem",
+            paddingTop: "1.25rem",
+            borderTop: "1px solid #f1f5f9",
+            fontSize: "0.73rem",
+            color: "#94a3b8",
+            lineHeight: 1.6,
+          }}
+        >
           Red AndesStay &bull; Acceso para Administradores, Recepcionistas, Huéspedes y Auditores
+          <br />
+          <span style={{ color: "#cbd5e1" }}>El rol es asignado por Azure Entra ID en el momento del login</span>
         </div>
       </div>
     </div>

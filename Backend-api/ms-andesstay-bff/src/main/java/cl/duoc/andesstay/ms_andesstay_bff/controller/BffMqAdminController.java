@@ -64,6 +64,13 @@ public class BffMqAdminController {
         return exchange(HttpMethod.POST, "/api/mqadmin/queues/{name}/purge", null, jwt, name);
     }
 
+    /** Publica un mensaje de prueba (tráfico visible en el Management UI de RabbitMQ). */
+    @PostMapping("/publish")
+    public Mono<ResponseEntity<String>> publishMessage(@RequestBody String body,
+            @AuthenticationPrincipal Jwt jwt) {
+        return exchange(HttpMethod.POST, "/api/mqadmin/publish", body, jwt);
+    }
+
     // ── Exchanges ─────────────────────────────────────────────────────────────
 
     @GetMapping("/exchanges")

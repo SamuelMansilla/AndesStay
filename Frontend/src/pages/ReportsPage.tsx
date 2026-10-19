@@ -78,34 +78,22 @@ export function ReportsPage() {
   ];
 
   return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+    <div className="page">
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ margin: 0, color: "#0f172a" }}>Reportería y Analítica (KPIs)</h1>
-          <p style={{ color: "#64748b", margin: "0.25rem 0 0 0" }}>
+          <h1 className="page-title">📊 Reportería y Analítica (KPIs)</h1>
+          <p className="page-subtitle">
             Panel de indicadores en tiempo real procesados vía Kafka / Microservicio ms-andesstay-report.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-          <button
-            onClick={() => refreshReportData(range)}
-            disabled={loading}
-            style={{
-              background: "#f1f5f9",
-              color: "#334155",
-              border: "1px solid #cbd5e1",
-              padding: "0.4rem 0.8rem",
-              borderRadius: "6px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <button className="btn btn-secondary" onClick={() => refreshReportData(range)} disabled={loading}>
             {loading ? "Cargando..." : "↻ Refrescar"}
           </button>
           <select
             value={range}
             onChange={(e) => setRange(e.target.value as "last24h" | "last7d" | "last30d")}
-            style={{ padding: "0.4rem 0.8rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontWeight: 600 }}
+            style={{ fontWeight: 600 }}
           >
             <option value="last24h">Últimas 24 horas</option>
             <option value="last7d">Últimos 7 días</option>
@@ -115,128 +103,117 @@ export function ReportsPage() {
       </div>
 
       {error && (
-        <div
-          style={{
-            padding: "0.75rem 1rem",
-            marginBottom: "1.5rem",
-            background: "#fffbeb",
-            color: "#b45309",
-            borderRadius: "6px",
-            border: "1px solid #fde68a",
-            fontSize: "0.875rem",
-          }}
-        >
+        <div className="alert alert--info" style={{ marginBottom: "1.5rem" }}>
           ℹ️ {error}
         </div>
       )}
 
       {/* TARJETAS DE KPIS PRINCIPALES */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "1rem",
-          marginBottom: "2rem",
-        }}
-      >
-        <div style={kpiBoxStyle}>
-          <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Tasa de Ocupación Activa</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#0284c7" }}>
-            {loading ? "..." : `${kpis?.activeOccupancyRate?.toFixed(1) ?? "0.0"}%`}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#16a34a" }}>KPI en tiempo real</div>
-        </div>
-        <div style={kpiBoxStyle}>
-          <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Tiempo de Ciclo Promedio</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#d97706" }}>
-            {loading ? "..." : `${kpis?.averageCycleHours?.toFixed(1) ?? "0.0"} hrs`}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Creación a Check-out</div>
-        </div>
-        <div style={kpiBoxStyle}>
-          <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Reservas Hoy</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#16a34a" }}>
-            {loading ? "..." : (kpis?.reservationsToday ?? 0)}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Ingresadas al sistema</div>
-        </div>
-        <div style={kpiBoxStyle}>
-          <div style={{ fontSize: "0.85rem", color: "#64748b" }}>Total Reservas (Rango)</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#8b5cf6" }}>
-            {loading ? "..." : (kpis?.totalReservations ?? 0)}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Filtro: {range}</div>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "1.5rem" }}>
-        {/* GRAFICO / BARRAS DE RESERVAS POR HORA */}
-        <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "1.25rem" }}>
-          <h3 style={{ marginTop: 0, fontSize: "1rem", color: "#1e293b" }}>
-            Distribución Estimada de Reservas por Hora (Rango: {range})
-          </h3>
-          <div style={{ display: "flex", alignItems: "flex-end", height: "180px", gap: "1rem", paddingTop: "2rem" }}>
-            {hourlyData.map((d) => (
-              <div key={d.hour} style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#2563eb", marginBottom: "0.25rem" }}>
-                  {d.count}
-                </span>
-                <div
-                  style={{
-                    width: "100%",
-                    background: "#3b82f6",
-                    borderRadius: "4px 4px 0 0",
-                    height: `${d.count * 15}px`,
-                    maxHeight: "140px",
-                  }}
-                />
-                <span style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.5rem" }}>{d.hour}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* UNIDADES MAS DEMANDADAS */}
-        <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "1.25rem" }}>
-          <h3 style={{ marginTop: 0, fontSize: "1rem", color: "#1e293b" }}>
-            Unidades Más Demandadas (Top Units - Rango: {range})
-          </h3>
-          {topUnits.length === 0 ? (
-            <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8", fontSize: "0.9rem" }}>
-              Sin datos de demanda registrados para este rango temporal.
+      <section className="section-gap">
+        <h2 className="section-title">📈 Indicadores Clave</h2>
+        <div className="kpi-grid" style={{ marginBottom: "2.25rem" }}>
+          <div className="card card--hover accent-top accent-top--blue">
+            <div className="card-title">Tasa de Ocupación Activa</div>
+            <div className="kpi-value" style={{ color: "#0284c7" }}>
+              {loading ? "..." : `${kpis?.activeOccupancyRate?.toFixed(1) ?? "0.0"}%`}
             </div>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #e2e8f0", color: "#64748b", textAlign: "left" }}>
-                  <th style={{ padding: "0.5rem" }}>Unidad</th>
-                  <th style={{ padding: "0.5rem" }}>Reservas</th>
-                  <th style={{ padding: "0.5rem" }}>Ingresos Estimados</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topUnits.map((u, idx) => (
-                  <tr key={u.unitId ?? idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "0.5rem", fontWeight: 600 }}>{u.name}</td>
-                    <td style={{ padding: "0.5rem" }}>{u.bookings}</td>
-                    <td style={{ padding: "0.5rem", color: "#16a34a", fontWeight: 600 }}>
-                      {typeof u.revenue === "number" ? `$${u.revenue.toLocaleString("es-CL")}` : (u.revenue || "N/A")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+            <div className="kpi-hint" style={{ color: "#16a34a" }}>KPI en tiempo real</div>
+          </div>
+          <div className="card card--hover accent-top accent-top--amber">
+            <div className="card-title">Tiempo de Ciclo Promedio</div>
+            <div className="kpi-value" style={{ color: "#d97706" }}>
+              {loading ? "..." : `${kpis?.averageCycleHours?.toFixed(1) ?? "0.0"} hrs`}
+            </div>
+            <div className="kpi-hint">Creación a Check-out</div>
+          </div>
+          <div className="card card--hover accent-top accent-top--green">
+            <div className="card-title">Reservas Hoy</div>
+            <div className="kpi-value" style={{ color: "#16a34a" }}>
+              {loading ? "..." : (kpis?.reservationsToday ?? 0)}
+            </div>
+            <div className="kpi-hint">Ingresadas al sistema</div>
+          </div>
+          <div className="card card--hover accent-top accent-top--violet">
+            <div className="card-title">Total Reservas (Rango)</div>
+            <div className="kpi-value" style={{ color: "#7c3aed" }}>
+              {loading ? "..." : (kpis?.totalReservations ?? 0)}
+            </div>
+            <div className="kpi-hint">Filtro: {range}</div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "3rem 0" }}>
+          <div className="spinner" />
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "1.5rem" }}>
+          {/* GRAFICO / BARRAS DE RESERVAS POR HORA */}
+          <div className="card accent-top accent-top--blue">
+            <h3 className="card-title" style={{ fontSize: "0.95rem", color: "#1e293b" }}>
+              Distribución Estimada de Reservas por Hora (Rango: {range})
+            </h3>
+            <div style={{ display: "flex", alignItems: "flex-end", height: "180px", gap: "1rem", paddingTop: "2rem" }}>
+              {hourlyData.map((d) => (
+                <div key={d.hour} style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#0284c7", marginBottom: "0.25rem" }}>
+                    {d.count}
+                  </span>
+                  <div
+                    style={{
+                      width: "100%",
+                      background: "linear-gradient(180deg, #38bdf8, #0284c7)",
+                      borderRadius: "4px 4px 0 0",
+                      height: `${d.count * 15}px`,
+                      maxHeight: "140px",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.5rem" }}>{d.hour}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* UNIDADES MAS DEMANDADAS */}
+          <div>
+            <h3 className="card-title" style={{ fontSize: "0.95rem", color: "#1e293b", marginBottom: "1rem" }}>
+              Unidades Más Demandadas (Top Units - Rango: {range})
+            </h3>
+            {topUnits.length === 0 ? (
+              <div className="card">
+                <div className="empty-state">
+                  <span className="empty-icon">📊</span>
+                  <span>Sin datos de demanda registrados para este rango temporal.</span>
+                </div>
+              </div>
+            ) : (
+              <div className="table-card card">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Unidad</th>
+                      <th>Reservas</th>
+                      <th>Ingresos Estimados</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topUnits.map((u, idx) => (
+                      <tr key={u.unitId ?? idx}>
+                        <td style={{ fontWeight: 600 }}>{u.name}</td>
+                        <td>{u.bookings}</td>
+                        <td style={{ color: "#16a34a", fontWeight: 600 }}>
+                          {typeof u.revenue === "number" ? `$${u.revenue.toLocaleString("es-CL")}` : (u.revenue || "N/A")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-const kpiBoxStyle = {
-  background: "white",
-  border: "1px solid #e2e8f0",
-  borderRadius: "8px",
-  padding: "1rem",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-};

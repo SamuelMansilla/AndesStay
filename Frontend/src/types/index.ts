@@ -113,3 +113,21 @@ export interface BindingRequest {
   exchange: string;
   routingKey: string;
 }
+
+export interface PublishRequest {
+  /** Exchange administrado de destino (modo exchange). Opcional. */
+  exchange?: string;
+  /** Routing key (modo exchange; acepta cadena vacía). */
+  routingKey?: string;
+  /** Cola administrada de destino, vía exchange por defecto (modo cola). Opcional. */
+  queue?: string;
+  /** Cuerpo del mensaje (JSON en texto). */
+  payload: string;
+}
+
+export interface PublishResult {
+  destination: string;
+  routingKey: string;
+  bytes: number;
+  contentType: string;
+}

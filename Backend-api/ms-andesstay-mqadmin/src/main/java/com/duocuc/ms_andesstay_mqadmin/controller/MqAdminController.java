@@ -2,6 +2,7 @@ package com.duocuc.ms_andesstay_mqadmin.controller;
 
 import com.duocuc.ms_andesstay_mqadmin.dto.BindingRequestDTO;
 import com.duocuc.ms_andesstay_mqadmin.dto.ExchangeRequestDTO;
+import com.duocuc.ms_andesstay_mqadmin.dto.PublishRequestDTO;
 import com.duocuc.ms_andesstay_mqadmin.dto.QueueRequestDTO;
 import com.duocuc.ms_andesstay_mqadmin.dto.ResourceNaming;
 import com.duocuc.ms_andesstay_mqadmin.model.BindingInfo;
@@ -10,6 +11,7 @@ import com.duocuc.ms_andesstay_mqadmin.model.QueueInfo;
 import com.duocuc.ms_andesstay_mqadmin.service.RabbitAdminService;
 import com.duocuc.ms_andesstay_mqadmin.service.dto.BindingRequest;
 import com.duocuc.ms_andesstay_mqadmin.service.dto.ExchangeRequest;
+import com.duocuc.ms_andesstay_mqadmin.service.dto.PublishRequest;
 import com.duocuc.ms_andesstay_mqadmin.service.dto.QueueRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
@@ -94,6 +96,20 @@ public class MqAdminController {
         response.put("queue", name);
         response.put("purged", purged);
         return response;
+    }
+
+    /**
+     * {@code POST /api/mqadmin/publish} — publica un mensaje de prueba para
+     * generar tráfico observable en el Management UI. Destino exclusivo:
+     * {@code exchange} (+routing key) o {@code queue} (exchange por defecto).
+     */
+    @PostMapping("/publish")
+    public Map<String, Object> publishMessage(@Valid @RequestBody PublishRequestDTO request) {
+        return rabbitAdminService.publishMessage(new PublishRequest(
+                request.getExchange(),
+                request.getRoutingKey(),
+                request.getQueue(),
+                request.getPayload()));
     }
 
     // ── Exchanges ─────────────────────────────────────────────────────────────

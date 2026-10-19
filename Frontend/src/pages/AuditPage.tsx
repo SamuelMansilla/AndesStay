@@ -65,192 +65,115 @@ export function AuditPage() {
     return matchesUser && matchesType;
   });
 
+  const labelStyle = { display: "block", marginBottom: "0.25rem" } as const;
+
   return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-        <div>
-          <h1 style={{ margin: 0, color: "#0f172a" }}>Auditoría y Timeline de Eventos</h1>
-          <p style={{ color: "#64748b", margin: "0.25rem 0 0 0" }}>
-            Trazabilidad inmutable de eventos de reserva (Solo lectura &bull; Fuente: Tópico Kafka <code>audit.timeline</code>).
-          </p>
-        </div>
-        <button
-          onClick={refreshAuditLogs}
-          disabled={loading}
-          style={{
-            background: "#f1f5f9",
-            color: "#334155",
-            border: "1px solid #cbd5e1",
-            padding: "0.5rem 1rem",
-            borderRadius: "6px",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Cargando..." : "↻ Refrescar Timeline"}
-        </button>
+    <div className="page">
+      <div className="page-header">
+        <h1 className="page-title">📜 Auditoría y Timeline de Eventos</h1>
+        <p className="page-subtitle">
+          Trazabilidad inmutable de eventos de reserva (Solo lectura &bull; Fuente: Tópico Kafka{" "}
+          <code>audit.timeline</code>).
+        </p>
       </div>
 
       {error && (
-        <div
-          style={{
-            padding: "0.75rem 1rem",
-            marginBottom: "1.5rem",
-            background: "#fffbeb",
-            color: "#b45309",
-            borderRadius: "6px",
-            border: "1px solid #fde68a",
-            fontSize: "0.875rem",
-          }}
-        >
-          ℹ️ {error}
+        <div className="alert alert--error" style={{ marginBottom: "1.5rem" }}>
+          ⚠️ {error}
         </div>
       )}
 
       {/* FILTROS (REQUISITO DEL CASO: usuario, fechas, tipo de evento) */}
-      <div
-        style={{
-          background: "white",
-          border: "1px solid #e2e8f0",
-          borderRadius: "8px",
-          padding: "1rem",
-          display: "flex",
-          gap: "1rem",
-          flexWrap: "wrap",
-          alignItems: "center",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <div style={{ flex: 1, minWidth: "220px" }}>
-          <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#475569", marginBottom: "0.25rem" }}>
-            Buscar por Actor / Usuario / Detalle:
-          </label>
-          <input
-            type="text"
-            placeholder="Ej: operador, huésped, confirmación..."
-            value={filterUser}
-            onChange={(e) => setFilterUser(e.target.value)}
-            style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "4px", border: "1px solid #cbd5e1" }}
-          />
-        </div>
+      <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.75rem" }}>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ flex: 1, minWidth: "220px" }}>
+            <label style={labelStyle}>Buscar por Actor / Usuario / Detalle:</label>
+            <input
+              type="text"
+              placeholder="Ej: operador, huésped, confirmación..."
+              value={filterUser}
+              onChange={(e) => setFilterUser(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
 
-        <div>
-          <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#475569", marginBottom: "0.25rem" }}>
-            Tipo de Evento:
-          </label>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            style={{ padding: "0.4rem 0.6rem", borderRadius: "4px", border: "1px solid #cbd5e1" }}
-          >
-            <option value="TODOS">Todos los eventos</option>
-            <option value="CREACION">CREACIÓN / RESERVA_CREADA</option>
-            <option value="CONFIRMACION">CONFIRMACIÓN / RESERVA_CONFIRMADA</option>
-            <option value="CHECK_IN">CHECK-IN</option>
-            <option value="CHECK_OUT">CHECK-OUT</option>
-            <option value="CANCELACION">CANCELACIÓN</option>
-          </select>
-        </div>
+          <div>
+            <label style={labelStyle}>Tipo de Evento:</label>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <option value="TODOS">Todos los eventos</option>
+              <option value="CREACION">CREACIÓN / RESERVA_CREADA</option>
+              <option value="CONFIRMACION">CONFIRMACIÓN / RESERVA_CONFIRMADA</option>
+              <option value="CHECK_IN">CHECK-IN</option>
+              <option value="CHECK_OUT">CHECK-OUT</option>
+              <option value="CANCELACION">CANCELACIÓN</option>
+            </select>
+          </div>
 
-        <div style={{ alignSelf: "flex-end", color: "#64748b", fontSize: "0.85rem" }}>
-          Mostrando {filteredEvents.length} eventos
+          <div style={{ paddingBottom: "0.4rem", color: "#64748b", fontSize: "0.85rem" }}>
+            Mostrando <strong style={{ color: "#7c3aed" }}>{filteredEvents.length}</strong> eventos
+          </div>
+
+          <div>
+            <button className="btn btn-secondary btn-sm" onClick={refreshAuditLogs} disabled={loading}>
+              {loading ? "Cargando..." : "↻ Refrescar Timeline"}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* TIMELINE DE EVENTOS */}
       {loading ? (
-        <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>
-          Cargando registros de auditoría desde el backend...
+        <div style={{ display: "flex", justifyContent: "center", padding: "3rem 0" }}>
+          <div className="spinner" />
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div style={{ padding: "3rem", textAlign: "center", color: "#94a3b8", background: "white", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-          No se encontraron eventos en la línea de tiempo.
+        <div className="card">
+          <div className="empty-state">
+            <span className="empty-icon">📜</span>
+            <span>No se encontraron eventos en la línea de tiempo.</span>
+          </div>
         </div>
       ) : (
-        <div style={{ position: "relative", paddingLeft: "1.5rem", borderLeft: "3px solid #cbd5e1" }}>
-          {filteredEvents.map((evt) => (
-            <div
-              key={evt.id}
-              style={{
-                position: "relative",
-                marginBottom: "1.5rem",
-                background: "white",
-                border: "1px solid #e2e8f0",
-                borderRadius: "8px",
-                padding: "1rem 1.25rem",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
-            >
-              {/* Indicador visual en el punto del timeline */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: "-1.9rem",
-                  top: "1.2rem",
-                  width: "12px",
-                  height: "12px",
-                  borderRadius: "50%",
-                  background: getEventColor(evt.eventType),
-                  border: "2px solid white",
-                  boxShadow: "0 0 0 2px #cbd5e1",
-                }}
-              />
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                <div>
-                  <span
-                    style={{
-                      background: getEventBg(evt.eventType),
-                      color: getEventColor(evt.eventType),
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                      padding: "0.2rem 0.5rem",
-                      borderRadius: "12px",
-                      marginRight: "0.75rem",
-                    }}
-                  >
-                    {evt.eventType}
-                  </span>
-                  <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1e293b" }}>
-                    {evt.action || evt.eventType}
-                  </span>
-                </div>
-                <span style={{ fontSize: "0.8rem", color: "#64748b" }}>{evt.timestamp}</span>
-              </div>
-
-              <p style={{ margin: "0.5rem 0", fontSize: "0.9rem", color: "#334155" }}>
-                {evt.details || evt.payload || "Sin detalles adicionales"}
-              </p>
-
-              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                Realizado por: <strong>{evt.actor || evt.performedBy || "Sistema"}</strong>
-              </div>
-            </div>
-          ))}
+        <div className="card table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo de Evento</th>
+                <th>Acción</th>
+                <th>Detalle</th>
+                <th>Actor</th>
+                <th>Fecha / Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEvents.map((evt) => (
+                <tr key={evt.id}>
+                  <td>
+                    <span className={`badge ${getEventBadgeClass(evt.eventType)}`}>{evt.eventType}</span>
+                  </td>
+                  <td style={{ fontWeight: 700, color: "#1e293b" }}>{evt.action || evt.eventType}</td>
+                  <td>{evt.details || evt.payload || "Sin detalles adicionales"}</td>
+                  <td>
+                    <strong style={{ color: "#0d9488" }}>{evt.actor || evt.performedBy || "Sistema"}</strong>
+                  </td>
+                  <td style={{ fontSize: "0.8rem", color: "#64748b", whiteSpace: "nowrap" }}>{evt.timestamp}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
 }
 
-function getEventColor(type: string): string {
-  if (!type) return "#64748b";
+function getEventBadgeClass(type: string): string {
+  if (!type) return "badge--slate";
   const t = type.toUpperCase();
-  if (t.includes("CREA")) return "#2563eb";
-  if (t.includes("CONFIRM")) return "#16a34a";
-  if (t.includes("CHECK_IN") || t.includes("CHECKIN")) return "#0891b2";
-  if (t.includes("CHECK_OUT") || t.includes("CHECKOUT")) return "#475569";
-  if (t.includes("CANCEL")) return "#dc2626";
-  return "#8b5cf6";
-}
-
-function getEventBg(type: string): string {
-  if (!type) return "#f1f5f9";
-  const t = type.toUpperCase();
-  if (t.includes("CREA")) return "#dbeafe";
-  if (t.includes("CONFIRM")) return "#dcfce7";
-  if (t.includes("CHECK_IN") || t.includes("CHECKIN")) return "#cffafe";
-  if (t.includes("CHECK_OUT") || t.includes("CHECKOUT")) return "#f1f5f9";
-  if (t.includes("CANCEL")) return "#fee2e2";
-  return "#ede9fe";
+  if (t.includes("CREA")) return "badge--blue";
+  if (t.includes("CONFIRM")) return "badge--green";
+  if (t.includes("CHECK_IN") || t.includes("CHECKIN")) return "badge--amber";
+  if (t.includes("CHECK_OUT") || t.includes("CHECKOUT")) return "badge--slate";
+  if (t.includes("CANCEL")) return "badge--red";
+  return "badge--violet";
 }
