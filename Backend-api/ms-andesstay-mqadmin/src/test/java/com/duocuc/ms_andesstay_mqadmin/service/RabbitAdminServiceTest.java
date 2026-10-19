@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueInformation;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 /**
  * Prueba {@link RabbitAdminService} con un {@link AmqpAdmin} de Mockito (indicador 7):
@@ -32,14 +33,16 @@ import org.springframework.amqp.core.QueueInformation;
 class RabbitAdminServiceTest {
 
     private AmqpAdmin amqpAdmin;
+    private RabbitTemplate rabbitTemplate;
     private RabbitAdminService service;
 
     @BeforeEach
     void setUp() {
         amqpAdmin = mock(AmqpAdmin.class);
+        rabbitTemplate = mock(RabbitTemplate.class);
         // Por defecto las colas no existen en el broker => conteos nulos.
         when(amqpAdmin.getQueueInfo(anyString())).thenReturn(null);
-        service = new RabbitAdminService(amqpAdmin, messagingProperties());
+        service = new RabbitAdminService(amqpAdmin, rabbitTemplate, messagingProperties());
         service.seedDeclaredTopology();
     }
 
