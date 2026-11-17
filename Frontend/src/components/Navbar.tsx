@@ -148,6 +148,12 @@ export function Navbar() {
               Mensajería
             </NavLink>
           )}
+
+          {role === "Admin" && (
+            <NavLink to="/streaming" style={linkStyle}>
+              Streaming
+            </NavLink>
+          )}
         </nav>
       </div>
 

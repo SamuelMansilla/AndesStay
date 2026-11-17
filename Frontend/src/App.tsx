@@ -8,6 +8,7 @@ import { CatalogPage } from "./pages/CatalogPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { AuditPage } from "./pages/AuditPage";
 import { MessagesAdminPage } from "./pages/MessagesAdminPage";
+import { StreamingAdminPage } from "./pages/StreamingAdminPage";
 
 export default function App() {
   return (
@@ -70,6 +71,15 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["Admin"]}>
                   <MessagesAdminPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/streaming"
+              element={
+                <ProtectedRoute allowedRoles={["Admin"]}>
+                  <StreamingAdminPage />
                 </ProtectedRoute>
               }
             />

@@ -131,3 +131,80 @@ export interface PublishResult {
   bytes: number;
   contentType: string;
 }
+
+// ── Administración de Kafka (ms-andesstay-kafkaadmin) ────────────────────────
+
+export interface KafkaTopicInfo {
+  name: string;
+  partitions: number;
+  replicationFactor: number;
+  internal: boolean;
+  configs: Record<string, string>;
+}
+
+export interface KafkaPartitionDetail {
+  partition: number;
+  leader: number;
+  replicas: number[];
+  isr: number[];
+}
+
+export interface KafkaTopicDetail {
+  name: string;
+  partitions: number;
+  replicationFactor: number;
+  configs: Record<string, string>;
+  partitionsDetail: KafkaPartitionDetail[];
+}
+
+export interface KafkaDeclaredTopic {
+  name: string;
+  partitions: number;
+  replicationFactor: number;
+  retentionMs: number;
+  retentionBytes: number;
+  cleanupPolicy: string;
+  minInsyncReplicas: number;
+}
+
+export interface KafkaConsumerGroupInfo {
+  groupId: string;
+  state: string;
+  members: number;
+  totalLag: number;
+}
+
+export interface KafkaPartitionLag {
+  topic: string;
+  partition: number;
+  currentOffset: number;
+  logEndOffset: number;
+  lag: number;
+}
+
+export interface KafkaConsumerGroupDetail {
+  groupId: string;
+  state: string;
+  coordinator: string | null;
+  members: {
+    memberId: string;
+    clientId: string;
+    host: string;
+    assignment: string[];
+  }[];
+  partitions: KafkaPartitionLag[];
+  totalLag: number;
+}
+
+export interface CreateKafkaTopicRequest {
+  name: string;
+  partitions: number;
+  replicationFactor: number;
+  configs?: Record<string, string>;
+}
+
+export interface KafkaLoadTestResult {
+  sent: number;
+  durationMs: number;
+  throughputPerSecond: number;
+}

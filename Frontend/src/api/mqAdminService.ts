@@ -5,6 +5,7 @@ import type {
   ExchangeInfo,
   ExchangeRequest,
   PublishRequest,
+  PublishResult,
   QueueInfo,
   QueueRequest,
 } from "../types";
