@@ -1,92 +1,98 @@
 package com.duocuc.ms_andesstay_audit.service;
 
+import com.duocuc.ms_andesstay_audit.dto.ReservationEventDTO;
 import com.duocuc.ms_andesstay_audit.model.AuditLog;
 import com.duocuc.ms_andesstay_audit.repository.AuditLogRepository;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.duocuc.ms_andesstay_audit.repository.ProcessedMessageRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Lógica de dominio del timeline de auditoría.
+ *
+ * <p>El {@code @KafkaListener} vive en {@code messaging/AuditEventListener};
+ * este servicio sólo persiste eventos ya deserializados y validados.</p>
+ */
 @Service
 public class AuditService {
 
     private static final Logger log = LoggerFactory.getLogger(AuditService.class);
-    private final AuditLogRepository auditLogRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AuditService(AuditLogRepository auditLogRepository) {
+    private static final int EVENT_TYPE_MAX = 255;
+    private static final int ACTOR_MAX = 255;
+    private static final int DETAILS_MAX = 500;
+    private static final int PAYLOAD_MAX = 2000;
+
+    private final AuditLogRepository auditLogRepository;
+    private final ProcessedMessageRepository processedMessageRepository;
+    private final ObjectMapper objectMapper;
+
+    public AuditService(AuditLogRepository auditLogRepository,
+                        ProcessedMessageRepository processedMessageRepository,
+                        ObjectMapper objectMapper) {
         this.auditLogRepository = auditLogRepository;
+        this.processedMessageRepository = processedMessageRepository;
+        this.objectMapper = objectMapper;
     }
 
-    // Escucha eventos en reservations.events y audit.timeline según la topología del Caso 5
-    @KafkaListener(
-            topics = {"reservations.events", "audit.timeline"},
-            groupId = "audit-group",
-            autoStartup = "${kafka.enabled:false}"
-    )
-    public void consumeAuditMessage(String message) {
-        log.info("📋 [KAFKA AUDIT] Evento recibido: {}", message);
-        try {
-            JsonNode root = objectMapper.readTree(message);
+    /**
+     * Persiste un evento de auditoría de forma idempotente: si el {@code eventId}
+     * ya fue procesado, no se inserta un segundo registro (unidad 3, guía 3.3.3).
+     */
+    @Transactional
+    public void recordEvent(ReservationEventDTO event, String topic, int partition, long offset) {
+        int inserted = processedMessageRepository.markProcessed(
+                event.eventId(), topic, partition, offset);
 
-            String eventType = root.hasNonNull("eventType")
-                    ? root.get("eventType").asText()
-                    : (root.hasNonNull("type") ? root.get("type").asText() : "EVENTO_RESERVA");
-
-            String actor = root.hasNonNull("actor")
-                    ? root.get("actor").asText()
-                    : (root.hasNonNull("guestEmail") ? root.get("guestEmail").asText() : "Sistema");
-
-            Long reservationId = root.hasNonNull("reservationId")
-                    ? root.get("reservationId").asLong()
-                    : (root.hasNonNull("id") ? root.get("id").asLong() : null);
-
-            LocalDateTime timestamp = LocalDateTime.now();
-            if (root.hasNonNull("timestamp")) {
-                try {
-                    timestamp = LocalDateTime.parse(root.get("timestamp").asText());
-                } catch (Exception ignored) {}
-            }
-
-            String details = root.hasNonNull("details")
-                    ? root.get("details").asText()
-                    : ("Evento " + eventType + " en reserva #" + (reservationId != null ? reservationId : "N/A"));
-
-            AuditLog auditLog = new AuditLog(eventType, actor, reservationId, timestamp, details, message);
-            auditLogRepository.save(auditLog);
-            log.info("✅ [KAFKA AUDIT] Registro de auditoría persistido: ID #{}, evento {}", auditLog.getId(), eventType);
-        } catch (Exception e) {
-            log.warn("⚠️ [KAFKA AUDIT] Mensaje recibido en texto plano o formato simple: {}", e.getMessage());
-            AuditLog fallbackLog = new AuditLog(
-                    "EVENTO_KAFKA",
-                    "Sistema",
-                    null,
-                    LocalDateTime.now(),
-                    message,
-                    message
-            );
-            auditLogRepository.save(fallbackLog);
+        if (inserted == 0) {
+            log.info("♻️ [KAFKA AUDIT] Evento duplicado ignorado: eventId={}, topic={}, partition={}, offset={}",
+                    event.eventId(), topic, partition, offset);
+            return;
         }
+
+        String eventType = truncate(
+                event.eventType() != null && !event.eventType().isBlank() ? event.eventType() : "EVENTO_RESERVA",
+                EVENT_TYPE_MAX);
+        String actor = truncate(
+                event.actor() != null && !event.actor().isBlank() ? event.actor() : "Sistema",
+                ACTOR_MAX);
+        String details = truncate(
+                event.details() != null && !event.details().isBlank()
+                        ? event.details()
+                        : "Evento " + eventType + " en reserva #" + event.reservationId(),
+                DETAILS_MAX);
+        String payload = truncate(toJson(event), PAYLOAD_MAX);
+
+        AuditLog auditLog = new AuditLog(
+                eventType,
+                actor,
+                event.reservationId(),
+                parseTimestamp(event.timestamp()),
+                details,
+                payload);
+
+        auditLogRepository.save(auditLog);
+        log.info("✅ [KAFKA AUDIT] Registro persistido: ID #{}, eventId={}, reserva=#{}",
+                auditLog.getId(), event.eventId(), event.reservationId());
     }
 
     public AuditLog recordLog(String eventType, String actor, Long reservationId, String details, String payload) {
         AuditLog auditLog = new AuditLog(
-                eventType,
-                actor != null && !actor.isBlank() ? actor : "Sistema",
+                truncate(eventType, EVENT_TYPE_MAX),
+                truncate(actor != null && !actor.isBlank() ? actor : "Sistema", ACTOR_MAX),
                 reservationId,
                 LocalDateTime.now(),
-                details != null ? details : eventType,
-                payload != null ? payload : details
-        );
+                truncate(details != null ? details : eventType, DETAILS_MAX),
+                truncate(payload != null ? payload : details, PAYLOAD_MAX));
         return auditLogRepository.save(auditLog);
     }
 
-    // Métodos de solo lectura para la API
     public List<AuditLog> getAllAuditLogs() {
         return auditLogRepository.findAllByOrderByTimestampDesc();
     }
@@ -104,5 +110,32 @@ public class AuditService {
 
     public List<AuditLog> getLogsByActor(String actor) {
         return auditLogRepository.findByActorIgnoreCaseOrderByTimestampDesc(actor);
+    }
+
+    private LocalDateTime parseTimestamp(String value) {
+        if (value == null || value.isBlank()) {
+            return LocalDateTime.now();
+        }
+        try {
+            return LocalDateTime.parse(value);
+        } catch (Exception ex) {
+            log.warn("⚠️ [KAFKA AUDIT] Timestamp no parseable '{}'; se usa ahora", value);
+            return LocalDateTime.now();
+        }
+    }
+
+    private String toJson(ReservationEventDTO event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (Exception ex) {
+            return String.valueOf(event);
+        }
+    }
+
+    private static String truncate(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() <= max ? value : value.substring(0, max);
     }
 }
