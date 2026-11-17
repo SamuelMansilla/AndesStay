@@ -46,10 +46,12 @@ Implementado y verificado contra el clúster local:
 - Payload corrupto enviado a `reservations.events.DLT` (verificado con `kafka-console-consumer`).
 - `ms-andesstay-kafkaadmin` con endpoints de tópicos, configs, particiones, consumer groups y load-test; tests de integración en verde.
 - BFF y página `/streaming` compilando (`npm run build`).
+- **Verificación contra Supabase (2026-11-17):** conexión OK, tablas `report_processed_messages` y `audit_processed_messages` creadas por `ddl-auto=update`; reserva #21 y su confirmación persistidas y proyectadas en `report_reservation_kpis` y `audit_logs`; reenvío del mismo `eventId` ignorado por ambos consumidores (idempotencia).
+- **Bug preexistente corregido:** el filtro de auditoría con parámetros nulos fallaba en Postgres (`lower(bytea)`); se corrigió con `CAST` y caminos rápidos por reserva/actor/tipo (`382b1df`).
 
 Pendiente para cerrar: evidencia de lag/retención (fase 06), Kafka Streams opcional (07) y documentación/entrega final (08).
 
-> Los avances se registran en la rama `feature/ep5-kafka` con **un commit por fase** (F0–F5).
+> Los avances se registran en la rama `feature/ep5-kafka` con **un commit por fase** (F0–F5) más el fix de auditoría.
 
 **Total:** ~10 días efectivos, +1,5 si se incluye la fase 7.
 

@@ -250,6 +250,20 @@ docker exec kafka-1 bash -c "printf '2:no-es-json\n' | kafka-console-producer \
 > del host (`host.docker.internal:9092/9093/9094` en Docker Desktop, o la IP
 > pública en EC2). Los servicios fuera de Docker usan `localhost`.
 
+### Verificación realizada contra Supabase (2026-11-17)
+
+1. Conexión al pooler `:6543` con `sslmode=require` y `prepareThreshold=0`: OK.
+2. Reserva #21 creada → evento en ambos tópicos → filas en `reservations`,
+   `report_reservation_kpis`, `audit_logs`, `report_processed_messages` y
+   `audit_processed_messages`.
+3. Reserva #21 confirmada → segundo evento → estado `CONFIRMADA` en la
+   proyección y segundo registro en el timeline.
+4. Reenvío del mismo `eventId` → ambos consumidores registraron
+   `Evento duplicado ignorado` y no se duplicaron filas.
+5. Filtros de auditoría (`reservationId`, `actor`, `eventType` y combinación)
+   corregidos y verificados contra Postgres (bug `lower(bytea)` por parámetros
+   nulos).
+
 ---
 
 ## Dónde vive cada cosa
