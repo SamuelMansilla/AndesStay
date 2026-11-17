@@ -98,13 +98,22 @@ public class AuditService {
     }
 
     public List<AuditLog> getLogsFiltered(String actor, String eventType, Long reservationId) {
-        if ((actor == null || actor.isBlank()) &&
-            (eventType == null || eventType.isBlank() || "TODOS".equalsIgnoreCase(eventType)) &&
-            reservationId == null) {
-            return auditLogRepository.findAllByOrderByTimestampDesc();
-        }
         String cleanType = ("TODOS".equalsIgnoreCase(eventType)) ? null : eventType;
         String cleanActor = (actor != null && !actor.isBlank()) ? actor.trim() : null;
+
+        // Caminos rápidos: evitan la consulta dinámica cuando hay un solo filtro.
+        if (cleanActor == null && cleanType == null && reservationId == null) {
+            return auditLogRepository.findAllByOrderByTimestampDesc();
+        }
+        if (cleanActor == null && cleanType == null) {
+            return auditLogRepository.findByReservationIdOrderByTimestampDesc(reservationId);
+        }
+        if (cleanActor == null && reservationId == null) {
+            return auditLogRepository.findByEventTypeContainingIgnoreCaseOrderByTimestampDesc(cleanType);
+        }
+        if (cleanType == null && reservationId == null) {
+            return auditLogRepository.findByActorContainingIgnoreCaseOrderByTimestampDesc(cleanActor);
+        }
         return auditLogRepository.searchLogs(cleanActor, cleanType, reservationId);
     }
 

@@ -17,9 +17,17 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     List<AuditLog> findByReservationIdOrderByTimestampDesc(Long reservationId);
 
+    List<AuditLog> findByEventTypeContainingIgnoreCaseOrderByTimestampDesc(String eventType);
+
+    List<AuditLog> findByActorContainingIgnoreCaseOrderByTimestampDesc(String actor);
+
+    /**
+     * Los {@code CAST} evitan que PostgreSQL infiera los parámetros nulos como
+     * {@code bytea} (error {@code function lower(bytea) does not exist}).
+     */
     @Query("SELECT a FROM AuditLog a WHERE " +
-           "(:actor IS NULL OR LOWER(a.actor) LIKE LOWER(CONCAT('%', :actor, '%'))) AND " +
-           "(:eventType IS NULL OR LOWER(a.eventType) LIKE LOWER(CONCAT('%', :eventType, '%'))) AND " +
+           "(:actor IS NULL OR LOWER(a.actor) LIKE LOWER(CONCAT('%', CAST(:actor AS string), '%'))) AND " +
+           "(:eventType IS NULL OR LOWER(a.eventType) LIKE LOWER(CONCAT('%', CAST(:eventType AS string), '%'))) AND " +
            "(:reservationId IS NULL OR a.reservationId = :reservationId) " +
            "ORDER BY a.timestamp DESC")
     List<AuditLog> searchLogs(
