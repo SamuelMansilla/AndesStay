@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ms-andesstay-kafkaadmin — administrador de Kafka (EP5)
+# Puerto 8087. No tiene BD: sólo habla con el clúster y con el IDaaS.
+# ─────────────────────────────────────────────────────────────────────────────
+spring:
+  application:
+    name: ms-andesstay-kafkaadmin
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092,localhost:9093,localhost:9094}
+    admin:
+      properties:
+        request.timeout.ms: 5000
+        default.api.timeout.ms: 5000
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AZURE_ISSUER_URI:https://login.microsoftonline.com/00d7b2a1-2793-4a06-883e-c37b29134049/v2.0}
+          audiences: ${AZURE_AUDIENCE:api://130c7bbc-6cfa-473f-b953-13c1ef4c2156}
+
+server:
+  port: 8087
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+andesstay:
+  kafka:
+    # Nombres de tópicos usados por el productor de prueba y el load-test.
+    topics:
+      reservations-events: reservations.events
+      audit-timeline: audit.timeline
+      report-metrics: report.metrics
+
+    # Topología declarada (indicador 7): el admin la expone en /topics/declared
+    # y protege estos tópicos contra borrado accidental.
+    declared:
+      - name: reservations.events
+        partitions: 3
+        replication-factor: 3
+        retention-ms: 604800000
+        retention-bytes: 1073741824
+        cleanup-policy: delete
+        min-insync-replicas: 2
+      - name: audit.timeline
+        partitions: 3
+        replication-factor: 3
+        retention-ms: 2592000000
+        retention-bytes: 5368709120
+        cleanup-policy: delete
+        min-insync-replicas: 2
+      - name: reservations.events.DLT
+        partitions: 3
+        replication-factor: 3
+        retention-ms: 604800000
+        retention-bytes: 536870912
+        cleanup-policy: delete
+        min-insync-replicas: 2
+      - name: audit.timeline.DLT
+        partitions: 3
+        replication-factor: 3
+        retention-ms: 604800000
+        retention-bytes: 536870912
+        cleanup-policy: delete
+        min-insync-replicas: 2
+      - name: report.metrics
+        partitions: 3
+        replication-factor: 3
+        retention-ms: 604800000
+        retention-bytes: 1073741824
+        cleanup-policy: delete
+        min-insync-replicas: 2
