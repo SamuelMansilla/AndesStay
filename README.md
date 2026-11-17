@@ -13,6 +13,8 @@ Plataforma unificada para la gestión de reservas web, administración de dispon
   - `ms-andesstay-audit` (Puerto 8085): Trazabilidad inmutable y timeline de eventos (consumidor Kafka).
   - `ms-andesstay-notify` (Puerto 8083): Envío de notificaciones y tickets de housekeeping (consumidor RabbitMQ).
   - `ms-andesstay-mqadmin` (Puerto 8086): Administración de RabbitMQ (colas, exchanges y bindings).
+  - `ms-andesstay-kafkaadmin` (Puerto 8087): Administración de Kafka (tópicos, configs y consumer groups con lag).
+- **Streaming:** **Apache Kafka** (3 ZooKeeper + 3 brokers + Kafka UI) para eventos de reservas hacia reportería y auditoría, con DTO JSON, DLT e idempotencia.
 - **Base de Datos:** **Supabase PostgreSQL** en AWS US-East-1 (Transaction Mode Pooler en puerto 6543).
 
 ---
@@ -21,6 +23,8 @@ Plataforma unificada para la gestión de reservas web, administración de dispon
 
 - [Documentación de Integración Frontend - BFF - Microservicios](docs/INTEGRACION_FRONTEND_BACKEND.md): Detalle exhaustivo de contratos de API, resolución de errores de autenticación JWT / MSAL, y optimización de conexiones de base de datos.
 - [Mensajería con RabbitMQ (EP3)](docs/MENSAJERIA_RABBITMQ.md): Topología de exchanges, colas, bindings y DLX/DLQ, contrato de ACK/reintentos, API de administración (`ms-andesstay-mqadmin`) y guía de prueba end-to-end.
+- [Streaming con Kafka (EP5)](docs/KAFKA_STREAMING.md): Tópicos, DTO, DLT, idempotencia, consumer groups, consumer lag y API de administración (`ms-andesstay-kafkaadmin`).
+- [Plan EP5](docs/PLAN_EP5_KAFKA.md): Trazabilidad de la rúbrica, decisiones y fases.
 - [Contexto de la EP3](context.md): Encargo, indicadores de la pauta y decisiones de diseño.
 - [Implementación MSAL y Axios](Frontend/docs/implementacion_msal_axios.txt): Detalles específicos de la integración con Microsoft Entra ID y flujo de redirección.
 
@@ -56,7 +60,17 @@ cd Backend-api/ms-andesstay-mqadmin && .\mvnw.cmd spring-boot:run
 ```
 *(Topología, API de administración y prueba de DLQ: [docs/MENSAJERIA_RABBITMQ.md](docs/MENSAJERIA_RABBITMQ.md).)*
 
-### 4. Levantar el Frontend
+### 4. Levantar Kafka y el administrador
+```bash
+# Clúster Kafka (3 ZooKeeper + 3 brokers + UI)
+docker compose -f infra/kafka/compose.yml up -d
+
+# Admin de Kafka (puerto 8087) — API REST protegida con JWT (rol Admin)
+cd Backend-api/ms-andesstay-kafkaadmin && .\mvnw.cmd spring-boot:run
+```
+*(Tópicos, DLT y pruebas: [docs/KAFKA_STREAMING.md](docs/KAFKA_STREAMING.md). UI en `http://localhost:9000`.)*
+
+### 5. Levantar el Frontend
 ```bash
 cd Frontend
 npm install
