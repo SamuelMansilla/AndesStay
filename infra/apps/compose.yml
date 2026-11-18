@@ -22,6 +22,7 @@ services:
       SERVICES_REPORT_URL: http://report-svc:8084
       SERVICES_AUDIT_URL: http://audit-svc:8085
       SERVICES_MQADMIN_URL: http://mqadmin-svc:8086
+      SERVICES_KAFKAADMIN_URL: http://kafkaadmin-svc:8087
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AZURE_ISSUER_URI}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES: ${AZURE_AUDIENCE}
     restart: unless-stopped
@@ -31,6 +32,7 @@ services:
       - report-svc
       - audit-svc
       - mqadmin-svc
+      - kafkaadmin-svc
     networks:
       - andesstay-apps
 
@@ -137,6 +139,26 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
       KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    restart: unless-stopped
+    networks:
+      - andesstay-apps
+
+  # ─── Microservicio Administrador de Kafka — Puerto 8087 ──────────────────
+  kafkaadmin-svc:
+    build:
+      context: ../../Backend-api/ms-andesstay-kafkaadmin
+      dockerfile: Dockerfile
+    container_name: kafkaadmin-svc
+    image: andesstay/kafkaadmin:latest
+    ports:
+      - "8087:8087"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092,localhost:9093,localhost:9094}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AZURE_ISSUER_URI}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES: ${AZURE_AUDIENCE}
     restart: unless-stopped
     networks:
       - andesstay-apps

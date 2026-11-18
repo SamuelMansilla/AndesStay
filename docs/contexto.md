@@ -1,6 +1,6 @@
 # AndesStay — Contexto Técnico Integral
 
-> Documento generado el **2026-10-22** a partir de la observación completa del código fuente (7 microservicios backend + frontend + infraestructura).
+> Documento generado el **2026-10-22** y actualizado el **2026-11-17** (EP5 Kafka) a partir de la observación completa del código fuente (8 microservicios backend + frontend + infraestructura).
 > Propósito: servir como mapa de referencia para retomar el desarrollo sobre el estado actual real del repositorio, complementando [`../context.md`](../context.md) (plan EP3) y [`INTEGRACION_FRONTEND_BACKEND.md`](INTEGRACION_FRONTEND_BACKEND.md) / [`MENSAJERIA_RABBITMQ.md`](MENSAJERIA_RABBITMQ.md).
 
 ---
@@ -51,16 +51,19 @@ AndesStay/
 ├── docs/
 │   ├── INTEGRACION_FRONTEND_BACKEND.md   contratos, fixes JWT/MSAL, pooler Supabase
 │   ├── MENSAJERIA_RABBITMQ.md            topología, ACK/DLQ, API mqadmin, pruebas E2E
+│   ├── KAFKA_STREAMING.md                EP5: tópicos, DLT, idempotencia, consumer lag
+│   ├── PLAN_EP5_KAFKA.md                 plan y trazabilidad de la EP5
 │   └── contexto.md                       ← ESTE documento
 ├── Frontend/                         React 19 + TS + Vite + MSAL (SPA)
-├── Backend-api/                      7 proyectos Maven independientes (cada uno con Dockerfile)
+├── Backend-api/                      8 proyectos Maven independientes (cada uno con Dockerfile)
 │   ├── ms-andesstay-bff/             :8080  puerta de enlace (Spring Security, valida JWT)
 │   ├── ms-andesstay-reservations/    :8081  CRUD reservas + ciclo de vida + productores
 │   ├── ms-andesstay-catalog/         :8082  unidades y tarifas (JPA)
 │   ├── ms-andesstay-notify/          :8083  consumidores RabbitMQ + publishers
 │   ├── ms-andesstay-report/          :8084  KPIs (consumer Kafka + fallback HTTP)
 │   ├── ms-andesstay-audit/           :8085  timeline append-only (consumer Kafka)
-│   └── ms-andesstay-mqadmin/         :8086  administración RabbitMQ (JWT + rol Admin)
+│   ├── ms-andesstay-mqadmin/         :8086  administración RabbitMQ (JWT + rol Admin)
+│   └── ms-andesstay-kafkaadmin/      :8087  administración Kafka (JWT + rol Admin, EP5)
 ├── infra/
 │   ├── mq/       compose.yml          RabbitMQ 3.13 x2 nodos + rabbitmq.conf
 │   ├── kafka/    compose.yml          ZK x3 + Kafka x3 + Kafka UI + topics-init
@@ -107,6 +110,7 @@ AndesStay/
 | `/reports` | ReportsPage (rango 24h/7d/30d, KPIs, Top Units) | Admin |
 | `/audit` | AuditPage (timeline + filtros) | Admin, Auditor |
 | `/messaging` | MessagesAdminPage (panel RabbitMQ: publish de prueba, CRUD colas/exchanges/bindings) | Admin |
+| `/streaming` | StreamingAdminPage (tópicos, configs, consumer groups y lag de Kafka) | Admin |
 
 - `Navbar.tsx`: links condicionales por rol, chip de usuario con badge de rol, logout redirect.
 - Estilos: `src/styles/global.css` (design system propio con variables `--as-*`). **Sin estado global** (solo `useState/useEffect` por página; refresco manual).
@@ -259,8 +263,8 @@ Exchange `ex.andesstay.notifications` (Direct) + DLX `ex.andesstay.dlx` + DLQ `q
 
 Formato de mensajes: JSON (`Jackson2JsonMessageConverter` en productor y consumidor). ACK manual, reintentos 3×2 s solo para `RecoverableException`, DLQ siempre con `requeue=false`, y DLQ consumida por `DeadLetterListener` (log en WARN).
 
-### Kafka (streaming, deshabilitado por defecto)
-Topics: `reservations.events` (productor reservations; consumidores report y audit) y `audit.timeline`. Grupos: `andesstay-report-group`, `audit-group`. Sin `KAFKA_ENABLED=true`, reservations usa el **fallback HTTP** hacia report/audit, que funciona igual de end-to-end.
+### Kafka (streaming — EP5)
+Topics: `reservations.events` (productor reservations; consumidor report) y `audit.timeline` (productor reservations; consumidor audit), ambos con 3 particiones, RF=3, `min.insync.replicas=2` y retención diferenciada (7d / 30d). DLT: `reservations.events.DLT` y `audit.timeline.DLT`. Grupos: `andesstay-report-group`, `audit-group` con concurrencia 3. Productor con DTO JSON, key `reservationId`, `acks=all` e idempotencia; consumidores con `ErrorHandlingDeserializer`, `@Valid`, reintentos 3× (1/2/4 s), DLT e idempotencia en `*_processed_messages`. Sin `KAFKA_ENABLED=true`, reservations usa el **fallback HTTP** hacia report/audit. Detalle: [`KAFKA_STREAMING.md`](KAFKA_STREAMING.md).
 
 ---
 
@@ -270,17 +274,17 @@ Topics: `reservations.events` (productor reservations; consumidores report y aud
 - 2 nodos `rabbitmq:3.13-management` (`rabbitmq-1` :5672/:15672, `rabbitmq-2` :5673/:15673), vhost `andesstay`, user `andesstay`/`AndesStay2024!`, volúmenes persistentes, `rabbitmq.conf` (memory watermark 0.6, disk limit 1 GB). El cluster real no está formado (2 nodos independientes; se usa el principal).
 
 ### 6.2 Kafka (`infra/kafka/compose.yml`)
-- 3 ZooKeeper (cp-7.6.1) + 3 Kafka brokers (:9092-9094, RF=3, 3 particiones, retención 168 h, connect timeout `${EC2_PUBLIC_IP:-localhost}`), `kafka-topics-init` crea `reservations.events` y `audit.timeline`, `kafka-ui` en :9000.
+- 3 ZooKeeper (cp-7.6.1) + 3 Kafka brokers (:9092-9094, RF=3, 3 particiones, `auto.create.topics=false`, `min.insync.replicas=2`, connect timeout `${EC2_PUBLIC_IP:-localhost}`), `kafka-topics-init` crea con configs explícitas `reservations.events`, `audit.timeline`, sus `.DLT` y `report.metrics`; `kafka-ui` en :9000.
 
 ### 6.3 Aplicaciones (`infra/apps/compose.yml` + `.env`)
-- 7 servicios con build context por microservicio, red `andesstay-apps`, `restart: unless-stopped`; bff con `depends_on` del resto. Env: `SERVICES_*_URL` (nombres de servicio en la red), DB y credenciales en `infra/apps/.env` (⚠️ versionado en claro: credenciales Supabase `DB_URL/DB_USER/DB_PASS`, `RABBITMQ_HOST=44.209.10.208` (EC2), `RABBITMQ_PASS`, `AZURE_ISSUER_URI/AZURE_AUDIENCE`; `KAFKA_ENABLED=false`).
+- 8 servicios con build context por microservicio, red `andesstay-apps`, `restart: unless-stopped`; bff con `depends_on` del resto (incluido `kafkaadmin-svc` :8087). Env: `SERVICES_*_URL` (nombres de servicio en la red), DB y credenciales en `infra/apps/.env` (⚠️ versionado en claro: credenciales Supabase `DB_URL/DB_USER/DB_PASS`, `RABBITMQ_HOST=44.209.10.208` (EC2), `RABBITMQ_PASS`, `AZURE_ISSUER_URI/AZURE_AUDIENCE`; `KAFKA_ENABLED=true` y `KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092/9093/9094` para la demo).
 - Los contenedores alcanzan los brokers por **host externo** (no están unidos a las redes `andesstay-mq`/`andesstay-kafka`), consistente con entorno de despliegue en EC2.
 
 ---
 
 ## 7. Configuración transversal / convenciones
 
-- **Puertos:** 5173 (front) · 8080 bff · 8081 reservations · 8082 catalog · 8083 notify · 8084 report · 8085 audit · 8086 mqadmin · 9200/9000 UIs.
+- **Puertos:** 5173 (front) · 8080 bff · 8081 reservations · 8082 catalog · 8083 notify · 8084 report · 8085 audit · 8086 mqadmin · 8087 kafkaadmin · 9000/9200 UIs.
 - **BD:** todos los servicios con BD comparten **Supabase PostgreSQL** por el pooler Transaction Mode :6543 (`prepareThreshold=0`), HikariCP `maximum-pool-size=3, minimum-idle=1, connection-timeout=20000`, `ddl-auto=update`. Sin migraciones (sin Flyway/Liquibase).
 - **Properties/nombres:** la topología AMQP bajo `andesstay.messaging.*` en `application.yml` (notify y mqadmin comparten `MessagingProperties` idénticas); **sin literales de nombres AMQP en Java** (pauta EP3).
 - **Idioma de logs:** mensajes en español con prefijos corchetes (`[ACK]`, `[REINTENTO]`, `[DESCARTE->DLQ]`, `[VALIDACION]`, `[JWT ISSUER MISMATCH]`).
@@ -328,12 +332,13 @@ cd Backend-api/ms-andesstay-bff          && .\mvnw.cmd spring-boot:run   # :8080
 cd Frontend && npm install && npm run dev              # :5173 — apunta según .env (API Gateway AWS o BFF local)
 ```
 
-**Flujos a prueba rápida:** crear reserva (POST `/api/reservations`) → documento VOUCHER en `q.docs.generate`; confirmar → FACTURA; pasar a CHECKOUT → ticket de limpieza; con `--andesstay.notify.simulation.fail-recipients=retry@andesstay.cl` se demuestra reintento 3×2 s → DLQ; listar KPIs `GET /api/report/kpis`, timeline `GET /api/audit`, topología y publish de prueba desde `/messaging` (rol Admin) o `POST /api/mqadmin/publish`.
+**Flujos a prueba rápida:** crear reserva (POST `/api/reservations`) → evento en `reservations.events` y `audit.timeline` → KPIs en `GET /api/report/kpis` y timeline en `GET /api/audit`; documento VOUCHER en `q.docs.generate`; confirmar → FACTURA; pasar a CHECKOUT → ticket de limpieza; con `--andesstay.notify.simulation.fail-recipients=retry@andesstay.cl` se demuestra reintento 3×2 s → DLQ; con un payload inválido se demuestra `.DLT`; topología y publish de prueba desde `/messaging` (RabbitMQ) o `/streaming` (Kafka, rol Admin).
 
 ---
 
-## 10. Estado general (octubre 2026)
+## 10. Estado general (noviembre 2026)
 
 - **EP3 (RabbitMQ) completa**: las 15 tareas del plan están marcadas como realizadas en `tareas/README.md` — mensajería centralizada, ACK/DLQ, mqadmin con validación/seguridad, frontend `/messaging` y docs al día (`MENSAJERIA_RABBITMQ.md`).
-- **Dual-broker coexistiendo**: Kafka para streaming (opcional/fallback HTTP) + RabbitMQ para comandos; documentada la separación de roles.
-- **Cadena auth consistente**: MSAL (SPA, App Roles en `idTokenClaims.roles`) → BFF (valida issuer/audience y propaga Bearer) → mqadmin re-valida y exige `Admin`; resto de microservicios sin verificación interna.
+- **EP5 (Kafka) en curso**: productor tipado, consumidores con validación/idempotencia/DLT, admin `ms-andesstay-kafkaadmin`, panel `/streaming`, topología con retención y consumer groups. Plan y estado por fase en `tareas/ep5/`.
+- **Dual-broker coexistiendo**: Kafka para streaming + RabbitMQ para comandos; documentada la separación de roles.
+- **Cadena auth consistente**: MSAL (SPA, App Roles en `idTokenClaims.roles`) → BFF (valida issuer/audience y propaga Bearer) → mqadmin/kafkaadmin re-validan y exigen `Admin`; resto de microservicios sin verificación interna.

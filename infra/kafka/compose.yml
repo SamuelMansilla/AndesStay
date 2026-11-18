@@ -1,8 +1,11 @@
 version: "3.9"
 
-# Infraestructura Kafka - AndesStay Caso 5
+# Infraestructura Kafka - AndesStay Caso 5 (EP5)
 # Topología: 3 nodos Zookeeper + 3 brokers Kafka + Kafka UI
-# Tópicos: reservations.events, audit.timeline (3 particiones, RF=3)
+# Tópicos de negocio: reservations.events, audit.timeline (3 particiones, RF=3)
+# Tópicos DLT: reservations.events.DLT, audit.timeline.DLT
+# Métricas opcionales (Kafka Streams): report.metrics
+# Regla: auto.create.topics=false; la topología se declara explícitamente.
 
 services:
   # ─── Zookeeper Ensemble (3 nodos) ───────────────────────────────────────────
@@ -85,8 +88,10 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_NUM_PARTITIONS: 3
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 60000
     volumes:
       - kafka1-data:/var/lib/kafka/data
     restart: unless-stopped
@@ -114,8 +119,10 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_NUM_PARTITIONS: 3
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 60000
     volumes:
       - kafka2-data:/var/lib/kafka/data
     restart: unless-stopped
@@ -143,15 +150,17 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_NUM_PARTITIONS: 3
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 60000
     volumes:
       - kafka3-data:/var/lib/kafka/data
     restart: unless-stopped
     networks:
       - andesstay-kafka
 
-  # ─── Creación automática de tópicos (3 particiones, RF=3) ────────────────────
+  # ─── Creación explícita de tópicos (3 particiones, RF=3, configs por flujo) ──
   kafka-topics-init:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka-topics-init
@@ -162,10 +171,14 @@ services:
     entrypoint: >
       /bin/bash -c "
         echo '⏳ Esperando que Kafka esté listo...';
-        sleep 30;
-        kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic reservations.events --partitions 3 --replication-factor 3;
-        kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic audit.timeline --partitions 3 --replication-factor 3;
-        echo '✅ Tópicos creados: reservations.events, audit.timeline';
+        until kafka-topics --bootstrap-server kafka-1:29092 --list >/dev/null 2>&1; do echo '   Kafka aún no responde, reintentando en 5s...'; sleep 5; done;
+        kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic reservations.events --partitions 3 --replication-factor 3 --config retention.ms=604800000 --config retention.bytes=1073741824 --config cleanup.policy=delete --config min.insync.replicas=2;
+        kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic audit.timeline --partitions 3 --replication-factor 3 --config retention.ms=2592000000 --config retention.bytes=5368709120 --config cleanup.policy=delete --config min.insync.replicas=2;
+        kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic reservations.events.DLT --partitions 3 --replication-factor 3 --config retention.ms=604800000 --config retention.bytes=536870912 --config cleanup.policy=delete --config min.insync.replicas=2;
+        kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic audit.timeline.DLT --partitions 3 --replication-factor 3 --config retention.ms=604800000 --config retention.bytes=536870912 --config cleanup.policy=delete --config min.insync.replicas=2;
+        kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic report.metrics --partitions 3 --replication-factor 3 --config retention.ms=604800000 --config retention.bytes=1073741824 --config cleanup.policy=delete --config min.insync.replicas=2;
+        echo '✅ Tópicos creados: reservations.events, audit.timeline, *.DLT, report.metrics';
+        kafka-topics --bootstrap-server kafka-1:29092 --describe --topic reservations.events;
       "
     networks:
       - andesstay-kafka
